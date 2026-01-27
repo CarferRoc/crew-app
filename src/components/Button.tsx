@@ -9,6 +9,7 @@ interface ButtonProps {
     style?: ViewStyle;
     textStyle?: TextStyle;
     disabled?: boolean;
+    loading?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -17,7 +18,8 @@ export const Button: React.FC<ButtonProps> = ({
     variant = 'primary',
     style,
     textStyle,
-    disabled
+    disabled,
+    loading
 }) => {
     const getStyles = () => {
         switch (variant) {
@@ -48,15 +50,17 @@ export const Button: React.FC<ButtonProps> = ({
     return (
         <TouchableOpacity
             onPress={onPress}
-            disabled={disabled}
+            disabled={disabled || loading}
             style={[
                 styles.container,
                 currentStyles.container,
-                disabled && styles.disabled,
+                (disabled || loading) && styles.disabled,
                 style
             ]}
         >
-            <Text style={[styles.text, currentStyles.text, textStyle]}>{title}</Text>
+            <Text style={[styles.text, currentStyles.text, textStyle]}>
+                {loading ? 'Cargando...' : title}
+            </Text>
         </TouchableOpacity>
     );
 };

@@ -4,8 +4,34 @@ export type User = {
   avatar: string;
   bio: string;
   location: string;
+  role: 'user' | 'lider' | 'admin';
   pointsPersonal: number;
   cars: Car[];
+};
+
+export type CrewRole = 'member' | 'crew_lider';
+
+export type CrewMember = {
+  crewId: string;
+  userId: string;
+  role: CrewRole;
+  joinedAt: string;
+};
+
+export type Conversation = {
+  id: string;
+  participant1Id: string;
+  participant2Id: string;
+  lastMessage?: string;
+  updatedAt: string;
+};
+
+export type DirectMessage = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
 };
 
 export type Car = {
@@ -14,6 +40,8 @@ export type Car = {
   model: string;
   year: number;
   hp: number;
+  nickname?: string;
+  description?: string;
   mods: string[];
   photos: string[];
 };
@@ -27,6 +55,7 @@ export type Crew = {
   scoreCrew: number;
   createdBy: string; // User ID
   invites: string[]; // Invite codes
+  inviteCode?: string; // Single invite code for joining
 };
 
 export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';

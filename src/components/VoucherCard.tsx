@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { theme } from '../theme';
+import { theme, useAppTheme } from '../theme';
 import { RewardVoucher } from '../models/types';
 
 interface VoucherCardProps {
@@ -10,44 +10,44 @@ interface VoucherCardProps {
 }
 
 export const VoucherCard: React.FC<VoucherCardProps> = ({ voucher, onRedeem, canRedeem }) => {
+    const activeTheme = useAppTheme();
+
     return (
-        <View style={[styles.container, voucher.isRedeemed && styles.redeemed]}>
-            <View style={styles.left}>
-                <Text style={styles.brand}>{voucher.brand}</Text>
-                <Text style={styles.title}>{voucher.title}</Text>
-                <Text style={styles.description} numberOfLines={2}>{voucher.description}</Text>
+        <View style={[styles.container, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border }, voucher.isRedeemed && styles.redeemed]}>
+            <View style={[styles.left, { borderRightColor: activeTheme.colors.border }]}>
+                <Text style={[styles.brand, { color: activeTheme.colors.primary }]}>{voucher.brand}</Text>
+                <Text style={[styles.title, { color: activeTheme.colors.text }]}>{voucher.title}</Text>
+                <Text style={[styles.description, { color: activeTheme.colors.textMuted }]} numberOfLines={2}>{voucher.description}</Text>
             </View>
             <View style={styles.right}>
                 <View style={styles.priceContainer}>
-                    <Text style={styles.price}>{voucher.pointsCost}</Text>
-                    <Text style={styles.pts}>PTS</Text>
+                    <Text style={[styles.price, { color: activeTheme.colors.text }]}>{voucher.pointsCost}</Text>
+                    <Text style={[styles.pts, { color: activeTheme.colors.textMuted }]}>PTS</Text>
                 </View>
                 <TouchableOpacity
-                    style={[styles.button, (!canRedeem || voucher.isRedeemed) && styles.buttonDisabled]}
+                    style={[styles.button, { backgroundColor: activeTheme.colors.secondary }, (!canRedeem || voucher.isRedeemed) && [styles.buttonDisabled, { backgroundColor: activeTheme.colors.surfaceVariant }]]}
                     onPress={onRedeem}
                     disabled={!canRedeem || voucher.isRedeemed}
                 >
-                    <Text style={styles.buttonText}>
+                    <Text style={[styles.buttonText, { color: activeTheme.colors.white }]}>
                         {voucher.isRedeemed ? 'CANJEADO' : 'CANJEAR'}
                     </Text>
                 </TouchableOpacity>
             </View>
             {/* Ticket cut-outs (purely UI) */}
-            <View style={styles.cutTop} />
-            <View style={styles.cutBottom} />
+            <View style={[styles.cutTop, { backgroundColor: activeTheme.colors.background }]} />
+            <View style={[styles.cutBottom, { backgroundColor: activeTheme.colors.background }]} />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: theme.colors.surface,
         padding: theme.spacing.m,
         borderRadius: theme.roundness.m,
         flexDirection: 'row',
         marginBottom: theme.spacing.m,
         borderWidth: 1,
-        borderColor: theme.colors.border,
         overflow: 'hidden',
     },
     redeemed: {
@@ -57,7 +57,6 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingRight: theme.spacing.m,
         borderRightWidth: 1,
-        borderRightColor: theme.colors.border,
         borderStyle: 'dashed',
     },
     right: {
@@ -68,18 +67,15 @@ const styles = StyleSheet.create({
     brand: {
         fontSize: 10,
         fontWeight: 'bold',
-        color: theme.colors.primary,
         textTransform: 'uppercase',
     },
     title: {
         ...theme.typography.h3,
         fontSize: 18,
-        color: theme.colors.text,
         marginVertical: 4,
     },
     description: {
         ...theme.typography.caption,
-        color: theme.colors.textMuted,
     },
     priceContainer: {
         flexDirection: 'row',
@@ -88,15 +84,12 @@ const styles = StyleSheet.create({
     },
     price: {
         ...theme.typography.h2,
-        color: theme.colors.text,
     },
     pts: {
         fontSize: 10,
-        color: theme.colors.textMuted,
         marginLeft: 4,
     },
     button: {
-        backgroundColor: theme.colors.secondary,
         paddingHorizontal: 8,
         paddingVertical: 6,
         borderRadius: theme.roundness.s,
@@ -104,10 +97,8 @@ const styles = StyleSheet.create({
     buttonText: {
         fontSize: 10,
         fontWeight: 'bold',
-        color: theme.colors.white,
     },
     buttonDisabled: {
-        backgroundColor: theme.colors.surfaceVariant,
     },
     cutTop: {
         position: 'absolute',
@@ -116,7 +107,6 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         borderRadius: 10,
-        backgroundColor: theme.colors.background,
     },
     cutBottom: {
         position: 'absolute',
@@ -125,6 +115,5 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         borderRadius: 10,
-        backgroundColor: theme.colors.background,
     },
 });

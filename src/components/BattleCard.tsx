@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { theme } from '../theme';
+import { theme, useAppTheme } from '../theme';
 import { Battle, Crew } from '../models/types';
 import { Button } from './Button';
 
@@ -14,25 +14,26 @@ interface BattleCardProps {
 
 export const BattleCard: React.FC<BattleCardProps> = ({ battle, crewA, crewB, onChooseWinner, isAdmin }) => {
     const isFinished = !!battle.winnerCrewId;
+    const activeTheme = useAppTheme();
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border }]}>
             <View style={styles.vsContainer}>
                 <View style={styles.crewInfo}>
                     <Text style={styles.badge}>{crewA?.badge}</Text>
-                    <Text style={styles.name}>{crewA?.name}</Text>
+                    <Text style={[styles.name, { color: activeTheme.colors.text }]}>{crewA?.name}</Text>
                 </View>
                 <Text style={styles.vs}>VS</Text>
                 <View style={styles.crewInfo}>
                     <Text style={styles.badge}>{crewB?.badge}</Text>
-                    <Text style={styles.name}>{crewB?.name}</Text>
+                    <Text style={[styles.name, { color: activeTheme.colors.text }]}>{crewB?.name}</Text>
                 </View>
             </View>
 
             {isFinished ? (
-                <View style={styles.winnerContainer}>
+                <View style={[styles.winnerContainer, { borderTopColor: activeTheme.colors.border }]}>
                     <Text style={styles.winnerTitle}>GANADOR</Text>
-                    <Text style={styles.winnerName}>
+                    <Text style={[styles.winnerName, { color: activeTheme.colors.text }]}>
                         {battle.winnerCrewId === crewA?.id ? crewA?.name : crewB?.name}
                     </Text>
                     <Text style={styles.pointsEarned}>+50 pts para la crew</Text>
@@ -63,12 +64,10 @@ export const BattleCard: React.FC<BattleCardProps> = ({ battle, crewA, crewB, on
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: theme.colors.surface,
         padding: theme.spacing.l,
         borderRadius: theme.roundness.l,
         marginBottom: theme.spacing.m,
         borderWidth: 1,
-        borderColor: theme.colors.border,
         ...theme.shadows.soft,
     },
     vsContainer: {
@@ -87,7 +86,6 @@ const styles = StyleSheet.create({
     name: {
         ...theme.typography.caption,
         fontWeight: 'bold',
-        color: theme.colors.text,
         textAlign: 'center',
     },
     vs: {
@@ -99,7 +97,6 @@ const styles = StyleSheet.create({
         marginTop: theme.spacing.l,
         paddingTop: theme.spacing.m,
         borderTopWidth: 1,
-        borderTopColor: theme.colors.border,
         alignItems: 'center',
     },
     winnerTitle: {
@@ -110,7 +107,6 @@ const styles = StyleSheet.create({
     },
     winnerName: {
         ...theme.typography.h3,
-        color: theme.colors.text,
         marginTop: 4,
     },
     pointsEarned: {

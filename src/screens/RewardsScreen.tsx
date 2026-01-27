@@ -1,17 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, Dimensions } from 'react-native';
-import { theme } from '../theme';
+import { theme, useAppTheme } from '../theme';
 import { Header } from '../components/Header';
 import { VoucherCard } from '../components/VoucherCard';
 import { useStore } from '../store/useStore';
 
 export const RewardsScreen = () => {
     const { vouchers, currentUser, redeemVoucher } = useStore();
+    const activeTheme = useAppTheme();
+
+    if (!currentUser) return null;
 
     const progress = Math.min(currentUser.pointsPersonal / 500, 1);
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
             <Header title="Premios y Vales" />
             <FlatList
                 data={vouchers}
@@ -19,15 +22,15 @@ export const RewardsScreen = () => {
                 contentContainerStyle={styles.list}
                 ListHeaderComponent={() => (
                     <View style={styles.header}>
-                        <View style={styles.pointsCard}>
-                            <Text style={styles.pointsLabel}>Tus Puntos Personales</Text>
-                            <Text style={styles.pointsValue}>{currentUser.pointsPersonal}</Text>
-                            <View style={styles.progressBarBg}>
-                                <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
+                        <View style={[styles.pointsCard, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.primary + '40' }]}>
+                            <Text style={[styles.pointsLabel, { color: activeTheme.colors.textMuted }]}>Tus Puntos Personales</Text>
+                            <Text style={[styles.pointsValue, { color: activeTheme.colors.text }]}>{currentUser.pointsPersonal}</Text>
+                            <View style={[styles.progressBarBg, { backgroundColor: activeTheme.colors.surfaceVariant }]}>
+                                <View style={[styles.progressBarFill, { width: `${progress * 100}%`, backgroundColor: activeTheme.colors.primary }]} />
                             </View>
-                            <Text style={styles.progressText}>Faltan {500 - currentUser.pointsPersonal} pts para el nivel Pro</Text>
+                            <Text style={[styles.progressText, { color: activeTheme.colors.textMuted }]}>Faltan {500 - currentUser.pointsPersonal} pts para el nivel Pro</Text>
                         </View>
-                        <Text style={styles.sectionTitle}>Catálogo Tuning</Text>
+                        <Text style={[styles.sectionTitle, { color: activeTheme.colors.textMuted }]}>Catálogo Tuning</Text>
                     </View>
                 )}
                 renderItem={({ item }) => (
@@ -45,7 +48,6 @@ export const RewardsScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.colors.background,
     },
     list: {
         padding: theme.spacing.m,
@@ -54,44 +56,36 @@ const styles = StyleSheet.create({
         marginBottom: theme.spacing.l,
     },
     pointsCard: {
-        backgroundColor: theme.colors.surface,
         padding: theme.spacing.l,
         borderRadius: theme.roundness.l,
         marginBottom: theme.spacing.xl,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: theme.colors.primary + '40',
     },
     pointsLabel: {
-        color: theme.colors.textMuted,
         fontSize: 12,
         textTransform: 'uppercase',
     },
     pointsValue: {
         ...theme.typography.h1,
         fontSize: 48,
-        color: theme.colors.text,
         marginVertical: 8,
     },
     progressBarBg: {
         width: '100%',
         height: 8,
-        backgroundColor: theme.colors.surfaceVariant,
         borderRadius: 4,
         marginVertical: 12,
     },
     progressBarFill: {
         height: '100%',
-        backgroundColor: theme.colors.primary,
         borderRadius: 4,
     },
     progressText: {
         fontSize: 10,
-        color: theme.colors.textMuted,
     },
     sectionTitle: {
         ...theme.typography.h3,
-        color: theme.colors.textMuted,
         fontSize: 14,
         textTransform: 'uppercase',
         letterSpacing: 1.2,

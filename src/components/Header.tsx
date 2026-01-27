@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { theme } from '../theme';
+import { theme, useAppTheme } from '../theme';
 
 interface HeaderProps {
     title: string;
@@ -10,17 +10,19 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, showBack, onBack, rightAction }) => {
+    const activeTheme = useAppTheme();
+
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={styles.container}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: activeTheme.colors.background }]}>
+            <View style={[styles.container, { borderBottomColor: activeTheme.colors.border, borderBottomWidth: 0.5 }]}>
                 <View style={styles.left}>
                     {showBack && (
                         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-                            <Text style={styles.backIcon}>←</Text>
+                            <Text style={[styles.backIcon, { color: activeTheme.colors.text }]}>←</Text>
                         </TouchableOpacity>
                     )}
                 </View>
-                <Text style={styles.title}>{title}</Text>
+                <Text style={[styles.title, { color: activeTheme.colors.text }]}>{title}</Text>
                 <View style={styles.right}>
                     {rightAction}
                 </View>
@@ -31,7 +33,6 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack, onBack, rightAc
 
 const styles = StyleSheet.create({
     safeArea: {
-        backgroundColor: theme.colors.background,
     },
     container: {
         height: 60,
@@ -51,12 +52,10 @@ const styles = StyleSheet.create({
         padding: 8,
     },
     backIcon: {
-        color: theme.colors.text,
         fontSize: 24,
     },
     title: {
         ...theme.typography.h3,
-        color: theme.colors.text,
         textAlign: 'center',
     },
 });

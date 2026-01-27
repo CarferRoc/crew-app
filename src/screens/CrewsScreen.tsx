@@ -1,23 +1,30 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, ScrollView } from 'react-native';
-import { theme } from '../theme';
+import { theme, useAppTheme } from '../theme';
 import { Header } from '../components/Header';
 import { CrewCard } from '../components/CrewCard';
 import { Button } from '../components/Button';
 import { useStore } from '../store/useStore';
 
 export const CrewsScreen = ({ navigation }: any) => {
-    const { crews, currentUser } = useStore();
+    const { currentUser, crews, fetchCrews } = useStore();
+    const activeTheme = useAppTheme();
 
-    const myCrews = crews.filter(c => c.members.includes(currentUser.id));
-    const otherCrews = crews.filter(c => !c.members.includes(currentUser.id));
+    React.useEffect(() => {
+        fetchCrews();
+    }, []);
+
+    if (!currentUser) return null;
+
+    const myCrews = crews.filter(c => c.members.includes(currentUser.id) || c.createdBy === currentUser.id);
+    const otherCrews = crews.filter(c => !c.members.includes(currentUser.id) && c.createdBy !== currentUser.id);
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
             <Header title="Mis Crews" />
             <ScrollView contentContainerStyle={styles.scroll}>
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Tus Crews</Text>
+                    <Text style={[styles.sectionTitle, { color: activeTheme.colors.textMuted }]}>Tus Crews</Text>
                     {myCrews.length > 0 ? (
                         myCrews.map(crew => (
                             <CrewCard
@@ -27,14 +34,14 @@ export const CrewsScreen = ({ navigation }: any) => {
                             />
                         ))
                     ) : (
-                        <View style={styles.empty}>
-                            <Text style={styles.emptyText}>No perteneces a ninguna crew aún.</Text>
+                        <View style={[styles.empty, { backgroundColor: activeTheme.colors.surface }]}>
+                            <Text style={[styles.emptyText, { color: activeTheme.colors.textMuted }]}>No perteneces a ninguna crew aún.</Text>
                         </View>
                     )}
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Descubrir Crews</Text>
+                    <Text style={[styles.sectionTitle, { color: activeTheme.colors.textMuted }]}>Descubrir Crews</Text>
                     {otherCrews.map(crew => (
                         <CrewCard
                             key={crew.id}
@@ -50,6 +57,14 @@ export const CrewsScreen = ({ navigation }: any) => {
                     onPress={() => navigation.navigate('JoinCrew')}
                     style={styles.joinBtn}
                 />
+
+                {(currentUser.role === 'admin' || currentUser.role === 'lider') && (
+                    <Button
+                        title="Crear Nueva Crew"
+                        onPress={() => navigation.navigate('CreateCrew')}
+                        style={styles.adminBtn}
+                    />
+                )}
             </ScrollView>
         </View>
     );
@@ -58,7 +73,6 @@ export const CrewsScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.colors.background,
     },
     scroll: {
         padding: theme.spacing.m,
@@ -68,7 +82,6 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         ...theme.typography.h3,
-        color: theme.colors.textMuted,
         marginBottom: theme.spacing.m,
         fontSize: 14,
         textTransform: 'uppercase',
@@ -77,15 +90,16 @@ const styles = StyleSheet.create({
     empty: {
         padding: theme.spacing.xl,
         alignItems: 'center',
-        backgroundColor: theme.colors.surface,
         borderRadius: theme.roundness.m,
     },
     emptyText: {
-        color: theme.colors.textMuted,
         textAlign: 'center',
     },
     joinBtn: {
         marginTop: theme.spacing.m,
+        marginBottom: theme.spacing.m,
+    },
+    adminBtn: {
         marginBottom: theme.spacing.xxl,
     },
 });
