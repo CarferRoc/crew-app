@@ -6,8 +6,15 @@ import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
 
 export const ProfileScreen = ({ navigation }: any) => {
-    const { currentUser, setUser } = useStore();
+    const { currentUser, setUser, crews, fetchCrews } = useStore();
     const activeTheme = useAppTheme();
+
+    React.useEffect(() => {
+        // Asegurar que tenemos las crews cargadas para saber si el usuario pertenece a una
+        if (crews.length === 0) {
+            fetchCrews();
+        }
+    }, []);
 
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();
@@ -28,6 +35,8 @@ export const ProfileScreen = ({ navigation }: any) => {
             </View>
         );
     }
+
+    const isMemberOfAnyCrew = crews.some(c => c.members.includes(currentUser.id) || c.createdBy === currentUser.id);
 
     return (
         <View style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
@@ -60,12 +69,14 @@ export const ProfileScreen = ({ navigation }: any) => {
                         </View>
                     </View>
 
-                    <TouchableOpacity
-                        style={[styles.inviteButton, { backgroundColor: activeTheme.colors.surfaceVariant, marginTop: 16 }]}
-                        onPress={() => navigation.navigate('MyInvites')}
-                    >
-                        <Text style={{ color: activeTheme.colors.primary, fontWeight: 'bold' }}>📩 Ver Invitaciones</Text>
-                    </TouchableOpacity>
+                    {!isMemberOfAnyCrew && (
+                        <TouchableOpacity
+                            style={[styles.inviteButton, { backgroundColor: activeTheme.colors.surfaceVariant, marginTop: 16 }]}
+                            onPress={() => navigation.navigate('MyInvites')}
+                        >
+                            <Text style={{ color: activeTheme.colors.primary, fontWeight: 'bold' }}>📩 Ver Invitaciones</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 <View style={styles.section}>

@@ -42,13 +42,19 @@ export const AdminPanelScreen = ({ navigation }: any) => {
     const handleRoleUpdate = async (newRole: 'user' | 'lider' | 'admin') => {
         if (!selectedUser) return;
 
+        console.log(`Intentando cambiar rol de ${selectedUser.username} (${selectedUser.id}) a ${newRole}`);
+
         try {
             await updateUserRole(selectedUser.id, newRole);
-            setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u));
+
+            // Refrescar lista completa para asegurar consistencia
+            await fetchUsers();
+
             setRoleModalVisible(false);
             Alert.alert('Éxito', `Rol de ${selectedUser.username} actualizado a ${newRole}`);
-        } catch (error) {
-            Alert.alert('Error', 'No se pudo actualizar el rol');
+        } catch (error: any) {
+            console.error('Error actualizando rol:', error);
+            Alert.alert('Error', `No se pudo actualizar el rol: ${error.message || 'Error desconocido'}`);
         }
     };
 
