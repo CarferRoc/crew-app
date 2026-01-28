@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, Crew, CrewEvent, Battle, RewardVoucher, ChatMessage, Conversation, DirectMessage } from '../models/types';
 import { supabase } from '../lib/supabase';
+import { Alert } from 'react-native';
 
 interface AppState {
     users: User[];
@@ -42,6 +43,14 @@ interface AppState {
     fetchCrewRequests: (crewId: string) => Promise<any[]>;
     approveRequest: (requestId: string) => Promise<boolean>;
     rejectRequest: (requestId: string) => Promise<boolean>;
+
+    // New Actions
+    fetchUserProfile: (userId: string) => Promise<User | null>;
+    createEventRequest: (crewId: string, eventData: { title: string, location: string, dateTime: string, description: string, latitude?: number, longitude?: number, image_url?: string }) => Promise<boolean>;
+    approveEvent: (eventId: string) => Promise<boolean>;
+    rejectEvent: (eventId: string) => Promise<boolean>;
+    deleteEvent: (eventId: string) => Promise<boolean>;
+    getOrCreateConversation: (otherUserId: string) => Promise<string | null>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -486,6 +495,162 @@ export const useStore = create<AppState>((set, get) => ({
         } catch (error) {
             console.error(error);
             return false;
+        }
+    },
+
+    fetchUserProfile: async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (error) throw error;
+
+            // Fetch cars properly
+            // Note: cars are usually in a separate table, but for now assuming they might be attached or needing separate fetch
+            // Let's assume cars are in 'cars' table
+            const { data: carsData } = await supabase
+                .from('cars')
+                .select('*')
+                .eq('owner_id', userId);
+
+            return { ...data, cars: carsData || [] };
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+            return null;
+        }
+    },
+
+    createEventRequest: async (crewId: string, eventData: { title: string, location: string, dateTime: string, description: string, latitude?: number, longitude?: number, image_url?: string }) => {
+        try {
+            const { currentUser } = get();
+            if (!currentUser) return false;
+
+            // Determine status based on role (leader -> upcoming, member -> pending)
+            // We need to check role in this crew
+            const { data: memberData } = await supabase
+                .from('crew_members')
+                .select('role')
+                .eq('crew_id', crewId)
+                .eq('profile_id', currentUser.id)
+                .single();
+
+            const isLeader = memberData?.role === 'crew_lider';
+            const status = isLeader ? 'upcoming' : 'pending';
+
+            const { error } = await supabase
+                .from('events')
+                .insert({
+                    crew_id: crewId,
+                    title: eventData.title || 'Quedada',
+                    date_time: eventData.dateTime,
+                    location: eventData.location,
+                    description: eventData.description,
+                    status: status,
+                    created_by: currentUser.id,
+                    latitude: eventData.latitude,
+                    longitude: eventData.longitude,
+                    image_url: eventData.image_url
+                });
+
+            if (error) {
+                console.error('Supabase Error:', error);
+                Alert.alert('Debug Error', JSON.stringify(error));
+                throw error;
+            }
+            return true;
+        } catch (error) {
+            console.error('Error creating event:', error);
+            // Alert.alert('Catch Error', JSON.stringify(error)); 
+            return false;
+        }
+    },
+
+    approveEvent: async (eventId: string) => {
+        try {
+            const { error } = await supabase
+                .from('events')
+                .update({ status: 'upcoming' })
+                .eq('id', eventId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    rejectEvent: async (eventId: string) => {
+        try {
+            const { error } = await supabase
+                .from('events')
+                .delete() // Simply delete the pending event
+                .eq('id', eventId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    deleteEvent: async (eventId: string) => {
+        try {
+            const { error } = await supabase
+                .from('events')
+                .delete()
+                .eq('id', eventId);
+
+            if (!error) {
+                set(state => ({
+                    events: state.events.filter(e => e.id !== eventId)
+                }));
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error deleting event:', error);
+            return false;
+        }
+    },
+
+    getOrCreateConversation: async (otherUserId: string) => {
+        try {
+            const { currentUser } = get();
+            if (!currentUser) return null;
+
+            const participantIds = [currentUser.id, otherUserId].sort();
+
+            // Check if exists
+            const { data: existing } = await supabase
+                .from('conversations')
+                .select('id')
+                .eq('participant1_id', participantIds[0])
+                .eq('participant2_id', participantIds[1])
+                .single();
+
+            if (existing) return existing.id;
+
+            // Create new
+            const { data: newConv, error } = await supabase
+                .from('conversations')
+                .insert({
+                    participant1_id: participantIds[0],
+                    participant2_id: participantIds[1],
+                    last_message: 'Nueva conversación'
+                })
+                .select('id')
+                .single();
+
+            if (error) {
+                console.error('Conversation Create Error:', error);
+                Alert.alert('Chat Error', JSON.stringify(error));
+                throw error;
+            }
+            return newConv.id;
+        } catch (error) {
+            console.error('Error getting conversation:', error);
+            return null;
         }
     }
 }));

@@ -1,31 +1,68 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import { CrewEvent } from '../models/types';
 
 interface EventCardProps {
     event: CrewEvent;
     onPress: () => void;
+    onDelete?: () => void;
+    canDelete?: boolean;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, onPress, onDelete, canDelete }) => {
     const date = new Date(event.dateTime);
-    const formattedDate = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const formattedDate = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
     const formattedTime = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
     return (
         <TouchableOpacity style={styles.container} onPress={onPress}>
-            <View style={styles.dateBadge}>
-                <Text style={styles.dateText}>{formattedDate}</Text>
-                <Text style={styles.timeText}>{formattedTime}</Text>
+            {/* Context Menu / Delete Button */}
+            {canDelete && (
+                <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
+                    <Ionicons name="trash-outline" size={20} color="#FF4444" />
+                </TouchableOpacity>
+            )}
+
+            {/* Large Cover Image */}
+            <View style={styles.imageContainer}>
+                {event.image_url ? (
+                    <Image source={{ uri: event.image_url }} style={styles.image} resizeMode="cover" />
+                ) : (
+                    <View style={styles.placeholderImage}>
+                        <Ionicons name="map" size={40} color={theme.colors.textMuted} />
+                    </View>
+                )}
+
+                {/* Overlay Date Badge */}
+                <View style={styles.overlayDate}>
+                    <Text style={styles.overlayDay}>{date.getDate()}</Text>
+                    <Text style={styles.overlayMonth}>{date.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase()}</Text>
+                </View>
             </View>
+
             <View style={styles.info}>
-                <Text style={styles.title}>{event.title}</Text>
-                <Text style={styles.location}>📍 {event.location}</Text>
-                <Text style={styles.attendees}>{event.attendees.length} / {event.capacity} asistentes</Text>
-            </View>
-            <View style={[styles.statusBadge, event.status === 'upcoming' ? styles.statusUpcoming : styles.statusPast]}>
-                <Text style={styles.statusText}>{event.status === 'upcoming' ? 'PRÓXIMO' : 'PASADO'}</Text>
+                <View style={styles.headerRow}>
+                    <Text style={styles.title} numberOfLines={1}>{event.title}</Text>
+                    <View style={[styles.statusBadge, event.status === 'upcoming' ? styles.statusUpcoming : styles.statusPast]}>
+                        <Text style={styles.statusText}>{event.status === 'upcoming' ? 'PRÓXIMO' : 'PASADO'}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.detailsRow}>
+                    <Ionicons name="time-outline" size={14} color={theme.colors.textMuted} />
+                    <Text style={styles.detailText}>{formattedDate} - {formattedTime}</Text>
+                </View>
+
+                <View style={styles.detailsRow}>
+                    <Ionicons name="location-outline" size={14} color={theme.colors.textMuted} />
+                    <Text style={styles.detailText} numberOfLines={1}>{event.location || 'Ubicación pendiente'}</Text>
+                </View>
+
+                <View style={styles.footerRow}>
+                    <Text style={styles.attendees}>{(event.attendees?.length || 0)} asistentes</Text>
+                    {/* Could add 'Join' button here if needed */}
+                </View>
             </View>
         </TouchableOpacity>
     );
@@ -34,49 +71,93 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
 const styles = StyleSheet.create({
     container: {
         backgroundColor: theme.colors.surface,
-        padding: theme.spacing.m,
-        borderRadius: theme.roundness.m,
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: theme.spacing.m,
+        borderRadius: 16,
+        marginBottom: 16,
+        overflow: 'hidden',
         borderWidth: 1,
         borderColor: theme.colors.border,
+        elevation: 2,
     },
-    dateBadge: {
+    imageContainer: {
+        height: 150,
         backgroundColor: theme.colors.surfaceVariant,
-        padding: theme.spacing.s,
-        borderRadius: theme.roundness.s,
+        position: 'relative',
+    },
+    image: {
+        width: '100%',
+        height: '100%',
+    },
+    placeholderImage: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
         alignItems: 'center',
-        width: 60,
-        marginRight: theme.spacing.m,
     },
-    dateText: {
-        color: theme.colors.primary,
+    overlayDate: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        borderRadius: 8,
+        padding: 6,
+        alignItems: 'center',
+        minWidth: 50,
+    },
+    overlayDay: {
+        color: '#FFF',
+        fontSize: 18,
         fontWeight: 'bold',
-        fontSize: 14,
     },
-    timeText: {
-        color: theme.colors.textMuted,
+    overlayMonth: {
+        color: '#FFF', // theme.colors.primary,
         fontSize: 10,
+        fontWeight: 'bold',
+    },
+    deleteBtn: {
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 10,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        padding: 8,
+        borderRadius: 20,
     },
     info: {
-        flex: 1,
+        padding: 16,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
     },
     title: {
-        ...theme.typography.h3,
         fontSize: 18,
+        fontWeight: 'bold',
         color: theme.colors.text,
+        flex: 1,
+        marginRight: 8,
     },
-    location: {
-        ...theme.typography.caption,
+    detailsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    detailText: {
         color: theme.colors.textMuted,
-        marginTop: 2,
+        fontSize: 14,
+        marginLeft: 6,
+    },
+    footerRow: {
+        marginTop: 8,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     attendees: {
-        ...theme.typography.caption,
+        fontSize: 12,
         color: theme.colors.secondary,
-        marginTop: 4,
-        fontWeight: '600',
+        fontWeight: 'bold',
     },
     statusBadge: {
         paddingHorizontal: 8,
@@ -84,13 +165,13 @@ const styles = StyleSheet.create({
         borderRadius: 4,
     },
     statusUpcoming: {
-        backgroundColor: theme.colors.success + '20',
+        backgroundColor: 'rgba(76, 175, 80, 0.1)',
     },
     statusPast: {
-        backgroundColor: theme.colors.textMuted + '20',
+        backgroundColor: 'rgba(150, 150, 150, 0.1)',
     },
     statusText: {
-        fontSize: 9,
+        fontSize: 10,
         fontWeight: 'bold',
         color: theme.colors.text,
     },

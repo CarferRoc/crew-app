@@ -58,7 +58,7 @@ export type Crew = {
   inviteCode?: string; // Single invite code for joining
 };
 
-export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'pending';
 
 export type CrewEvent = {
   id: string;
@@ -70,6 +70,10 @@ export type CrewEvent = {
   capacity: number;
   attendees: string[]; // User IDs
   status: EventStatus;
+  latitude?: number;
+  longitude?: number;
+  image_url?: string;
+  requester_id?: string;
 };
 
 export type ChatMessage = {

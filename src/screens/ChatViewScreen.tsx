@@ -78,7 +78,8 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
                 .eq('id', conversationId);
 
         } catch (error) {
-            Alert.alert('Error', 'No se pudo enviar el mensaje');
+            console.error('Chat Send Error:', error);
+            Alert.alert('Send Error', JSON.stringify(error));
         }
     };
 

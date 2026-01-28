@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, TextInput, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { theme, useAppTheme } from '../theme';
 import { Header } from '../components/Header';
@@ -10,11 +11,12 @@ import { supabase } from '../lib/supabase';
 
 export const CrewDetailScreen = ({ route, navigation }: any) => {
     const { crewId } = route.params;
-    const { currentUser, generateInviteCode, requestJoinCrew, fetchCrewRequests, approveRequest, rejectRequest } = useStore();
+    const { currentUser, generateInviteCode, requestJoinCrew, fetchCrewRequests, approveRequest, rejectRequest, approveEvent, rejectEvent, getOrCreateConversation, deleteEvent } = useStore();
     const [activeTab, setActiveTab] = useState<'usuarios' | 'quedadas' | 'chat' | 'ranking'>('usuarios');
     const [crew, setCrew] = useState<any>(null);
     const [members, setMembers] = useState<any[]>([]);
     const [events, setEvents] = useState<any[]>([]);
+    const [pendingEvents, setPendingEvents] = useState<any[]>([]);
     const [messages, setMessages] = useState<any[]>([]);
     const [chatText, setChatText] = useState('');
     const [loading, setLoading] = useState(true);
@@ -54,7 +56,20 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 .select('*')
                 .eq('crew_id', crewId)
                 .order('date_time', { ascending: true });
-            setEvents(eventsData || []);
+
+            const mappedEvents = (eventsData || []).map(e => ({
+                ...e,
+                dateTime: e.date_time,
+                crewId: e.crew_id,
+                // Ensure other potential mismatches are handled if strictly typed, 
+                // but dateTime is the critical one for the reported error.
+            }));
+
+            setEvents(mappedEvents.filter((e: any) => e.status !== 'pending') || []);
+
+            if (myMembership?.role === 'crew_lider') {
+                setPendingEvents(mappedEvents.filter((e: any) => e.status === 'pending') || []);
+            }
 
             // 5. Fetch Messages
             const { data: messagesData } = await supabase
@@ -116,8 +131,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
     };
 
     const createNewEvent = () => {
-        // En una app real, abriríamos un modal o navegaríamos a CreateEvent
-        Alert.alert('Próximamente', 'Función de creación detallada de eventos en desarrollo.');
+        navigation.navigate('CreateEvent', { crewId });
     };
 
     const handleJoinRequest = async () => {
@@ -278,7 +292,11 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 )}
 
                 {members.map(item => (
-                    <View key={item.profile_id} style={[styles.memberRow, { backgroundColor: activeTheme.colors.surface }]}>
+                    <TouchableOpacity
+                        key={item.profile_id}
+                        style={[styles.memberRow, { backgroundColor: activeTheme.colors.surface }]}
+                        onPress={() => navigation.navigate('Profile', { userId: item.profile_id })}
+                    >
                         <Image source={{ uri: item.profile?.avatar_url || 'https://i.pravatar.cc/150' }} style={styles.memberAvatar} />
                         <View style={{ flex: 1, marginLeft: 12 }}>
                             <Text style={[styles.memberName, { color: activeTheme.colors.text }]}>{item.profile?.username || 'Sin nick'}</Text>
@@ -286,7 +304,21 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                                 {item.role === 'crew_lider' ? 'LÍDER DE CREW' : 'MIEMBRO'}
                             </Text>
                         </View>
-                    </View>
+                        <TouchableOpacity
+                            style={{ marginRight: 12, padding: 8 }}
+                            onPress={async () => {
+                                const convId = await getOrCreateConversation(item.profile_id);
+                                if (convId) {
+                                    navigation.navigate('ChatView', { conversationId: convId, otherUser: item.profile });
+                                } else {
+                                    Alert.alert('Error', 'No se pudo iniciar el chat');
+                                }
+                            }}
+                        >
+                            <Ionicons name="chatbubble-ellipses-outline" size={24} color={activeTheme.colors.primary} />
+                        </TouchableOpacity>
+                        <Text style={{ color: activeTheme.colors.textMuted, fontSize: 20 }}>→</Text>
+                    </TouchableOpacity>
                 ))}
             </ScrollView>
         );
@@ -294,12 +326,54 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
 
     const renderEvents = () => (
         <ScrollView style={styles.tabContent}>
-            {userCrewRole === 'crew_lider' && (
-                <Button
-                    title="Crear Evento Oficial"
-                    onPress={createNewEvent}
-                    style={{ marginBottom: 16 }}
-                />
+            <Button
+                title={userCrewRole === 'crew_lider' ? "Crear Evento Oficial" : "Solicitar Quedada"}
+                onPress={createNewEvent}
+                style={{ marginBottom: 16 }}
+                variant={userCrewRole === 'crew_lider' ? 'primary' : 'outline'}
+            />
+
+            {userCrewRole === 'crew_lider' && pendingEvents.length > 0 && (
+                <View style={{ marginBottom: 24, padding: 16, backgroundColor: activeTheme.colors.surfaceVariant, borderRadius: 12 }}>
+                    <Text style={{ fontWeight: 'bold', color: activeTheme.colors.primary, marginBottom: 12 }}>Quedadas Pendientes de Aprobación</Text>
+                    {pendingEvents.map(evt => (
+                        <View key={evt.id} style={{ marginBottom: 16, borderBottomWidth: 1, borderBottomColor: activeTheme.colors.border, paddingBottom: 12 }}>
+                            <Text style={{ fontWeight: 'bold', color: activeTheme.colors.text }}>{evt.title}</Text>
+                            <Text style={{ color: activeTheme.colors.textMuted }}>{new Date(evt.date_time).toLocaleString()}</Text>
+                            <Text style={{ color: activeTheme.colors.text, marginVertical: 4 }}>{evt.location}</Text>
+
+                            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                                <Button
+                                    title="Rechazar"
+                                    variant="outline"
+                                    style={{ flex: 1, height: 36 }}
+                                    textStyle={{ fontSize: 12 }}
+                                    onPress={async () => {
+                                        const success = await rejectEvent(evt.id);
+                                        if (success) {
+                                            setPendingEvents(prev => prev.filter(e => e.id !== evt.id));
+                                            Alert.alert('Rechazada', 'Evento eliminado.');
+                                        }
+                                    }}
+                                />
+                                <Button
+                                    title="Aprobar"
+                                    variant="primary"
+                                    style={{ flex: 1, height: 36 }}
+                                    textStyle={{ fontSize: 12 }}
+                                    onPress={async () => {
+                                        const success = await approveEvent(evt.id);
+                                        if (success) {
+                                            setPendingEvents(prev => prev.filter(e => e.id !== evt.id));
+                                            fetchCrewData(); // Refresh events list
+                                            Alert.alert('Aprobada', 'El evento es ahora público.');
+                                        }
+                                    }}
+                                />
+                            </View>
+                        </View>
+                    ))}
+                </View>
             )}
             {events.length > 0 ? (
                 events.map(event => (
@@ -307,6 +381,25 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                         key={event.id}
                         event={event}
                         onPress={() => Alert.alert('Evento', 'Inscripción en desarrollo')}
+                        canDelete={userCrewRole === 'crew_lider' || event.created_by === currentUser?.id}
+                        onDelete={() => {
+                            Alert.alert('Eliminar Quedada', '¿Estás seguro de que quieres eliminar esta quedada?', [
+                                { text: 'Cancelar', style: 'cancel' },
+                                {
+                                    text: 'Eliminar',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                        const success = await deleteEvent(event.id);
+                                        if (success) {
+                                            setEvents(prev => prev.filter(e => e.id !== event.id));
+                                            Alert.alert('Eliminado', 'La quedada ha sido eliminada.');
+                                        } else {
+                                            Alert.alert('Error', 'No se pudo eliminar.');
+                                        }
+                                    }
+                                }
+                            ]);
+                        }}
                     />
                 ))
             ) : (

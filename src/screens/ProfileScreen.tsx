@@ -1,20 +1,49 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { theme, useAppTheme } from '../theme';
 import { Header } from '../components/Header';
 import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
 
-export const ProfileScreen = ({ navigation }: any) => {
-    const { currentUser, setUser, crews, fetchCrews } = useStore();
+export const ProfileScreen = ({ navigation, route }: any) => {
+    const params = route.params || {};
+    const userId = params.userId;
+
+    const { currentUser, setUser, crews, fetchCrews, fetchUserProfile, getOrCreateConversation } = useStore();
     const activeTheme = useAppTheme();
+
+    const [viewUser, setViewUser] = React.useState<any>(null);
+    const [loading, setLoading] = React.useState(false);
 
     React.useEffect(() => {
         // Asegurar que tenemos las crews cargadas para saber si el usuario pertenece a una
         if (crews.length === 0) {
             fetchCrews();
         }
-    }, []);
+
+        if (userId && userId !== currentUser?.id) {
+            loadUserProfile();
+        } else {
+            setViewUser(currentUser);
+        }
+    }, [userId, currentUser]);
+
+    const loadUserProfile = async () => {
+        setLoading(true);
+        const user = await fetchUserProfile(userId);
+        setViewUser(user);
+        setLoading(false);
+    };
+
+    const handleMessage = async () => {
+        if (!viewUser) return;
+        const convId = await getOrCreateConversation(viewUser.id);
+        if (convId) {
+            navigation.navigate('ChatView', { conversationId: convId, otherUser: viewUser });
+        } else {
+            Alert.alert('Error', 'No se pudo iniciar la conversación');
+        }
+    };
 
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();
@@ -25,7 +54,11 @@ export const ProfileScreen = ({ navigation }: any) => {
         }
     };
 
-    if (!currentUser) {
+    if (!viewUser && loading) {
+        return <ActivityIndicator size="large" color={activeTheme.colors.primary} style={{ marginTop: 50 }} />;
+    }
+
+    if (!viewUser) {
         return (
             <View style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
                 <Header title="Perfil" />
@@ -36,40 +69,50 @@ export const ProfileScreen = ({ navigation }: any) => {
         );
     }
 
-    const isMemberOfAnyCrew = crews.some(c => c.members.includes(currentUser.id) || c.createdBy === currentUser.id);
+    const userToDisplay = viewUser;
+    const isCurrentUser = userToDisplay.id === currentUser?.id;
+    const isMemberOfAnyCrew = crews.some(c => c.members.includes(userToDisplay.id) || c.createdBy === userToDisplay.id);
 
     return (
         <View style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
             <Header
-                title="Mi Perfil"
+                title={isCurrentUser ? "Mi Perfil" : `Perfil de ${userToDisplay.username || userToDisplay.nick || 'Usuario'}`}
+                showBack={!isCurrentUser}
+                onBack={() => navigation.goBack()}
                 rightAction={
-                    <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
-                        <Text style={{ color: activeTheme.colors.primary, fontWeight: 'bold' }}>Editar</Text>
-                    </TouchableOpacity>
+                    isCurrentUser ? (
+                        <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
+                            <Text style={{ color: activeTheme.colors.primary, fontWeight: 'bold' }}>Editar</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity onPress={handleMessage}>
+                            <Text style={{ color: activeTheme.colors.primary, fontWeight: 'bold' }}>Mensaje</Text>
+                        </TouchableOpacity>
+                    )
                 }
             />
             <ScrollView contentContainerStyle={[styles.scroll, { backgroundColor: activeTheme.colors.background }]}>
                 <View style={styles.profileHeader}>
-                    <Image source={{ uri: currentUser.avatar || 'https://i.pravatar.cc/150' }} style={[styles.avatar, { borderColor: activeTheme.colors.primary }]} />
-                    <Text style={[styles.nick, { color: activeTheme.colors.text }]}>{currentUser.nick}</Text>
-                    <View style={[styles.roleBadge, currentUser.role === 'admin' ? styles.adminBadge : [styles.userBadge, { backgroundColor: activeTheme.colors.surfaceVariant }]]}>
-                        <Text style={[styles.roleText, { color: activeTheme.colors.text }]}>{currentUser.role.toUpperCase()}</Text>
+                    <Image source={{ uri: userToDisplay.avatar_url || userToDisplay.avatar || 'https://i.pravatar.cc/150' }} style={[styles.avatar, { borderColor: activeTheme.colors.primary }]} />
+                    <Text style={[styles.nick, { color: activeTheme.colors.text }]}>{userToDisplay.username || userToDisplay.nick || 'Usuario'}</Text>
+                    <View style={[styles.roleBadge, userToDisplay.role === 'admin' ? styles.adminBadge : [styles.userBadge, { backgroundColor: activeTheme.colors.surfaceVariant }]]}>
+                        <Text style={[styles.roleText, { color: activeTheme.colors.text }]}>{userToDisplay.role.toUpperCase()}</Text>
                     </View>
-                    <Text style={[styles.location, { color: activeTheme.colors.textMuted }]}>{currentUser.location || 'Sin ubicación'}</Text>
+                    <Text style={[styles.location, { color: activeTheme.colors.textMuted }]}>{userToDisplay.location || 'Sin ubicación'}</Text>
 
                     <View style={[styles.statsContainer, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border, borderWidth: 1 }]}>
                         <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: activeTheme.colors.text }]}>{currentUser.pointsPersonal}</Text>
+                            <Text style={[styles.statValue, { color: activeTheme.colors.text }]}>{userToDisplay.pointsPersonal}</Text>
                             <Text style={[styles.statLabel, { color: activeTheme.colors.textMuted }]}>Puntos</Text>
                         </View>
                         <View style={[styles.statDivider, { backgroundColor: activeTheme.colors.border }]} />
                         <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: activeTheme.colors.text }]}>{currentUser.cars.length}</Text>
+                            <Text style={[styles.statValue, { color: activeTheme.colors.text }]}>{userToDisplay.cars ? userToDisplay.cars.length : 0}</Text>
                             <Text style={[styles.statLabel, { color: activeTheme.colors.textMuted }]}>Coches</Text>
                         </View>
                     </View>
 
-                    {!isMemberOfAnyCrew && (
+                    {isCurrentUser && !isMemberOfAnyCrew && (
                         <TouchableOpacity
                             style={[styles.inviteButton, { backgroundColor: activeTheme.colors.surfaceVariant, marginTop: 16 }]}
                             onPress={() => navigation.navigate('MyInvites')}
@@ -81,14 +124,16 @@ export const ProfileScreen = ({ navigation }: any) => {
 
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={[styles.sectionTitle, { color: activeTheme.colors.textMuted }]}>Mis Coches</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('AddCar')}>
-                            <Text style={{ color: activeTheme.colors.primary, fontWeight: 'bold' }}>+ Añadir</Text>
-                        </TouchableOpacity>
+                        <Text style={[styles.sectionTitle, { color: activeTheme.colors.textMuted }]}>{isCurrentUser ? 'Mis Coches' : 'Sus Coches'}</Text>
+                        {isCurrentUser && (
+                            <TouchableOpacity onPress={() => navigation.navigate('AddCar')}>
+                                <Text style={{ color: activeTheme.colors.primary, fontWeight: 'bold' }}>+ Añadir</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
-                    {currentUser.cars.length > 0 ? (
-                        currentUser.cars.map(car => (
+                    {userToDisplay.cars && userToDisplay.cars.length > 0 ? (
+                        userToDisplay.cars.map((car: any) => (
                             <TouchableOpacity key={car.id} style={[styles.carCard, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border }]}>
                                 {car.photos && car.photos.length > 0 ? (
                                     <Image source={{ uri: car.photos[0] }} style={styles.carImage} />
@@ -109,33 +154,37 @@ export const ProfileScreen = ({ navigation }: any) => {
                         ))
                     ) : (
                         <View style={[styles.emptySection, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border }]}>
-                            <Text style={[styles.emptyText, { color: activeTheme.colors.textMuted }]}>Aún no has añadido ningún coche.</Text>
+                            <Text style={[styles.emptyText, { color: activeTheme.colors.textMuted }]}>{isCurrentUser ? 'Aún no has añadido ningún coche.' : 'Este usuario no tiene coches.'}</Text>
                         </View>
                     )}
                 </View>
 
-                {currentUser.role === 'admin' && (
-                    <TouchableOpacity
-                        style={[styles.settingsRow, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.accent, borderWidth: 1, marginTop: 24 }]}
-                        onPress={() => navigation.navigate('AdminPanel')}
-                    >
-                        <Text style={[styles.settingsText, { color: activeTheme.colors.accent }]}>Panel Administrador</Text>
-                    </TouchableOpacity>
+                {isCurrentUser && (
+                    <>
+                        {userToDisplay.role === 'admin' && (
+                            <TouchableOpacity
+                                style={[styles.settingsRow, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.accent, borderWidth: 1, marginTop: 24 }]}
+                                onPress={() => navigation.navigate('AdminPanel')}
+                            >
+                                <Text style={[styles.settingsText, { color: activeTheme.colors.accent }]}>Panel Administrador</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                            style={[styles.settingsRow, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border, borderWidth: 1, marginTop: 12 }]}
+                            onPress={() => navigation.navigate('Settings')}
+                        >
+                            <Text style={[styles.settingsText, { color: activeTheme.colors.text }]}>Ajustes de la App</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.settingsRow, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border, borderWidth: 1, marginTop: 8 }]}
+                            onPress={handleLogout}
+                        >
+                            <Text style={[styles.settingsText, { color: activeTheme.colors.error }]}>Cerrar Sesión</Text>
+                        </TouchableOpacity>
+                    </>
                 )}
-
-                <TouchableOpacity
-                    style={[styles.settingsRow, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border, borderWidth: 1, marginTop: 12 }]}
-                    onPress={() => navigation.navigate('Settings')}
-                >
-                    <Text style={[styles.settingsText, { color: activeTheme.colors.text }]}>Ajustes de la App</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.settingsRow, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border, borderWidth: 1, marginTop: 8 }]}
-                    onPress={handleLogout}
-                >
-                    <Text style={[styles.settingsText, { color: activeTheme.colors.error }]}>Cerrar Sesión</Text>
-                </TouchableOpacity>
             </ScrollView>
         </View>
     );
