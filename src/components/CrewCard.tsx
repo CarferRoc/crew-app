@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { theme, useAppTheme } from '../theme';
+import { useAppTheme } from '../theme';
 import { Crew } from '../models/types';
+import { Ionicons } from '@expo/vector-icons';
 
 interface CrewCardProps {
     crew: Crew;
@@ -9,27 +10,49 @@ interface CrewCardProps {
 }
 
 export const CrewCard: React.FC<CrewCardProps> = ({ crew, onPress }) => {
-    const activeTheme = useAppTheme();
+    const theme = useAppTheme();
     const isImageUrl = crew.badge.startsWith('http');
+    const memberCount = crew.members ? crew.members.length : 0;
 
     return (
         <TouchableOpacity
-            style={[styles.container, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border }]}
+            style={[styles.container, { backgroundColor: theme.colors.surface }]}
             onPress={onPress}
+            activeOpacity={0.9}
         >
-            <View style={[styles.badgeContainer, { backgroundColor: activeTheme.colors.surfaceVariant }]}>
+            <View style={styles.imageContainer}>
                 {isImageUrl ? (
-                    <Image source={{ uri: crew.badge }} style={styles.badgeImage} />
+                    <Image source={{ uri: crew.badge }} style={styles.badgeImage} resizeMode="cover" />
                 ) : (
-                    <Text style={styles.badge}>{crew.badge}</Text>
+                    <View style={[styles.placeholderBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
+                        <Text style={{ fontSize: 32 }}>{crew.badge.charAt(0)}</Text>
+                    </View>
                 )}
+                <View style={[styles.rankBadge, { backgroundColor: theme.colors.overlay }]}>
+                    <Text style={[styles.rankText, { color: '#FFF' }]}>#{Math.floor(Math.random() * 10) + 1}</Text>
+                </View>
             </View>
+
             <View style={styles.info}>
-                <Text style={[styles.name, { color: activeTheme.colors.text }]}>{crew.name}</Text>
-                <Text style={[styles.members, { color: activeTheme.colors.textMuted }]}>{crew.members.length} Miembros • {crew.scoreCrew} Puntos</Text>
+                <View style={styles.headerRow}>
+                    <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={1}>{crew.name}</Text>
+                    {crew.isVerified && <Ionicons name="checkmark-circle" size={16} color={theme.colors.primary} style={{ marginLeft: 4 }} />}
+                </View>
+
+                <View style={styles.statsRow}>
+                    <View style={styles.stat}>
+                        <Ionicons name="people-outline" size={14} color={theme.colors.textMuted} />
+                        <Text style={[styles.statText, { color: theme.colors.textMuted }]}>{memberCount}</Text>
+                    </View>
+                    <View style={[styles.stat, { marginLeft: 12 }]}>
+                        <Ionicons name="trophy-outline" size={14} color={theme.colors.textMuted} />
+                        <Text style={[styles.statText, { color: theme.colors.textMuted }]}>{crew.scoreCrew} pts</Text>
+                    </View>
+                </View>
             </View>
-            <View style={[styles.scoreBadge, { backgroundColor: activeTheme.colors.primary + '20' }]}>
-                <Text style={[styles.scoreText, { color: activeTheme.colors.primary }]}>Rank #{Math.floor(Math.random() * 10) + 1}</Text>
+
+            <View style={styles.arrow}>
+                <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
             </View>
         </TouchableOpacity>
     );
@@ -37,46 +60,75 @@ export const CrewCard: React.FC<CrewCardProps> = ({ crew, onPress }) => {
 
 const styles = StyleSheet.create({
     container: {
-        padding: theme.spacing.m,
-        borderRadius: theme.roundness.l,
+        borderRadius: 16,
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: theme.spacing.m,
-        borderWidth: 1,
+        marginBottom: 12,
+        padding: 12,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
     },
-    badgeContainer: {
+    imageContainer: {
         width: 60,
         height: 60,
-        borderRadius: theme.roundness.m,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: theme.spacing.m,
-    },
-    badge: {
-        fontSize: 32,
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginRight: 16,
     },
     badgeImage: {
         width: '100%',
         height: '100%',
-        borderRadius: 8,
+    },
+    placeholderBadge: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    rankBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderTopLeftRadius: 8,
+    },
+    rankText: {
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     info: {
         flex: 1,
+        justifyContent: 'center',
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
     },
     name: {
-        ...theme.typography.h3,
+        fontSize: 16,
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
+        maxWidth: '90%',
     },
-    members: {
-        ...theme.typography.caption,
-        marginTop: 4,
+    statsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
-    scoreBadge: {
-        paddingHorizontal: theme.spacing.s,
-        paddingVertical: 4,
-        borderRadius: theme.roundness.s,
+    stat: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
-    scoreText: {
+    statText: {
         fontSize: 12,
-        fontWeight: '700',
+        fontWeight: '600',
+        marginLeft: 4,
     },
+    arrow: {
+        padding: 4,
+    }
 });

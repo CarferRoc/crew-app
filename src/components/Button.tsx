@@ -1,83 +1,92 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { theme } from '../theme';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle, View } from 'react-native';
+import { useAppTheme } from '../theme';
 
 interface ButtonProps {
     title: string;
     onPress: () => void;
-    variant?: 'primary' | 'secondary' | 'outline';
+    variant?: 'primary' | 'secondary' | 'outline' | 'danger';
+    loading?: boolean;
+    disabled?: boolean;
     style?: ViewStyle;
     textStyle?: TextStyle;
-    disabled?: boolean;
-    loading?: boolean;
+    icon?: React.ReactNode;
 }
 
 export const Button: React.FC<ButtonProps> = ({
     title,
     onPress,
     variant = 'primary',
+    loading = false,
+    disabled = false,
     style,
     textStyle,
-    disabled,
-    loading
+    icon
 }) => {
-    const getStyles = () => {
+    const theme = useAppTheme();
+
+    const getBackgroundColor = () => {
+        if (disabled) return theme.colors.surfaceVariant;
         switch (variant) {
-            case 'secondary':
-                return {
-                    container: { backgroundColor: theme.colors.surfaceVariant },
-                    text: { color: theme.colors.text }
-                };
-            case 'outline':
-                return {
-                    container: {
-                        backgroundColor: 'transparent',
-                        borderWidth: 1,
-                        borderColor: theme.colors.primary
-                    },
-                    text: { color: theme.colors.primary }
-                };
-            default:
-                return {
-                    container: { backgroundColor: theme.colors.primary },
-                    text: { color: theme.colors.white }
-                };
+            case 'primary': return theme.colors.primary;
+            case 'secondary': return theme.colors.secondary;
+            case 'danger': return theme.colors.error;
+            case 'outline': return 'transparent';
+            default: return theme.colors.primary;
         }
     };
 
-    const currentStyles = getStyles();
+    const getBorderColor = () => {
+        if (variant === 'outline') return theme.colors.border;
+        return 'transparent';
+    };
+
+    const getTextColor = () => {
+        if (disabled) return theme.colors.textMuted;
+        if (variant === 'outline') return theme.colors.text;
+        return '#FFFFFF';
+    };
 
     return (
         <TouchableOpacity
-            onPress={onPress}
-            disabled={disabled || loading}
             style={[
-                styles.container,
-                currentStyles.container,
-                (disabled || loading) && styles.disabled,
+                styles.button,
+                {
+                    backgroundColor: getBackgroundColor(),
+                    borderColor: getBorderColor(),
+                    borderWidth: variant === 'outline' ? 1 : 0,
+                },
                 style
             ]}
+            onPress={onPress}
+            disabled={disabled || loading}
+            activeOpacity={0.8}
         >
-            <Text style={[styles.text, currentStyles.text, textStyle]}>
-                {loading ? 'Cargando...' : title}
-            </Text>
+            {loading ? (
+                <ActivityIndicator color={getTextColor()} />
+            ) : (
+                <>
+                    {icon && <View style={{ marginRight: 8 }}>{icon}</View>}
+                    <Text style={[styles.text, { color: getTextColor() }, theme.typography.button, textStyle]}>
+                        {title}
+                    </Text>
+                </>
+            )}
         </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
+    button: {
         height: 50,
-        borderRadius: theme.roundness.m,
+        borderRadius: 12,
+        flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: theme.spacing.l,
-        ...theme.shadows.soft,
+        paddingHorizontal: 24,
+        marginVertical: 4,
     },
     text: {
-        ...theme.typography.button,
-    },
-    disabled: {
-        opacity: 0.5,
-    },
+        textAlign: 'center',
+    }
 });

@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { theme, useAppTheme } from '../theme';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme';
 
 interface HeaderProps {
     title: string;
@@ -10,52 +11,63 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, showBack, onBack, rightAction }) => {
-    const activeTheme = useAppTheme();
+    const theme = useAppTheme();
 
     return (
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: activeTheme.colors.background }]}>
-            <View style={[styles.container, { borderBottomColor: activeTheme.colors.border, borderBottomWidth: 0.5 }]}>
-                <View style={styles.left}>
-                    {showBack && (
-                        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-                            <Text style={[styles.backIcon, { color: activeTheme.colors.text }]}>←</Text>
-                        </TouchableOpacity>
-                    )}
+        <View style={[styles.container, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
+            <SafeAreaView>
+                <View style={styles.content}>
+                    <View style={styles.left}>
+                        {showBack && (
+                            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                                <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>
+                        {title.toUpperCase()}
+                    </Text>
+
+                    <View style={styles.right}>
+                        {rightAction}
+                    </View>
                 </View>
-                <Text style={[styles.title, { color: activeTheme.colors.text }]}>{title}</Text>
-                <View style={styles.right}>
-                    {rightAction}
-                </View>
-            </View>
-        </SafeAreaView>
+            </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
-    },
     container: {
-        height: 60,
+        paddingTop: Platform.OS === 'android' ? 40 : 0,
+        borderBottomWidth: 1,
+        elevation: 0,
+        zIndex: 100,
+    },
+    content: {
+        height: 50,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: theme.spacing.m,
+        paddingHorizontal: 16,
     },
     left: {
         width: 40,
+        alignItems: 'flex-start',
     },
     right: {
         width: 40,
         alignItems: 'flex-end',
     },
-    backButton: {
-        padding: 8,
-    },
-    backIcon: {
-        fontSize: 24,
-    },
     title: {
-        ...theme.typography.h3,
+        fontSize: 14,
+        fontWeight: 'bold',
+        letterSpacing: 2,
+        flex: 1,
         textAlign: 'center',
     },
+    backButton: {
+        padding: 4,
+    }
 });
