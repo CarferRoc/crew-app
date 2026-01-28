@@ -38,6 +38,7 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
     };
 
     const subscribeToMessages = () => {
+        console.log('Subscribing to channel:', `dm_${conversationId}`);
         const channel = supabase
             .channel(`dm_${conversationId}`)
             .on('postgres_changes', {
@@ -46,9 +47,12 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
                 table: 'direct_messages',
                 filter: `conversation_id=eq.${conversationId}`
             }, (payload) => {
+                console.log('Realtime payload received:', payload);
                 setMessages(prev => [...prev, payload.new]);
             })
-            .subscribe();
+            .subscribe((status) => {
+                console.log('Subscription status:', status);
+            });
 
         return () => supabase.removeChannel(channel);
     };

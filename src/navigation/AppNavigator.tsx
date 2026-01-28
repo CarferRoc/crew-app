@@ -39,6 +39,7 @@ const CrewsStack = () => (
         <Stack.Screen name="MyInvites" component={MyInvitesScreen} />
         <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="ChatView" component={ChatViewScreen} />
     </Stack.Navigator>
 );
 
