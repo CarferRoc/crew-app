@@ -30,10 +30,10 @@ export const ProfileScreen = ({ navigation, route }: any) => {
     // Edit Mode State
     const [isEditing, setIsEditing] = React.useState(false);
     const [editForm, setEditForm] = React.useState({
-        nick: '',
+        username: '',
         bio: '',
         location: '',
-        avatar: ''
+        avatar_url: ''
     });
 
     React.useEffect(() => {
@@ -45,10 +45,10 @@ export const ProfileScreen = ({ navigation, route }: any) => {
     React.useEffect(() => {
         if (profile) {
             setEditForm({
-                nick: profile.nick || profile.username || '',
+                username: profile.username || '',
                 bio: profile.bio || '',
                 location: profile.location || '',
-                avatar: profile.avatar || profile.avatar_url || ''
+                avatar_url: profile.avatar_url || ''
             });
         }
     }, [profile]);
@@ -99,7 +99,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                 .from('avatars')
                 .getPublicUrl(filePath);
 
-            setEditForm(prev => ({ ...prev, avatar: data.publicUrl }));
+            setEditForm(prev => ({ ...prev, avatar_url: data.publicUrl }));
         } catch (error: any) {
             console.error('Upload failed:', error);
             Alert.alert('Upload Error', JSON.stringify(error, null, 2));
@@ -143,10 +143,10 @@ export const ProfileScreen = ({ navigation, route }: any) => {
         try {
             setLoading(true);
             const updates = {
-                username: editForm.nick, // Saving to 'username' column
+                username: editForm.username, // Saving to 'username' column
                 bio: editForm.bio,
                 location: editForm.location,
-                avatar_url: editForm.avatar, // Saving to 'avatar_url' column
+                avatar_url: editForm.avatar_url, // Saving to 'avatar_url' column
                 updated_at: new Date().toISOString(),
             };
 
@@ -161,8 +161,8 @@ export const ProfileScreen = ({ navigation, route }: any) => {
             const updatedProfile = {
                 ...profile,
                 ...updates,
-                nick: editForm.nick,
-                avatar: editForm.avatar
+                username: editForm.username,
+                avatar_url: editForm.avatar_url
             };
 
             setProfile(updatedProfile);
@@ -199,7 +199,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                 <View style={{ alignItems: 'center', width: '100%' }}>
                     <View style={styles.avatarContainer}>
                         <Image
-                            source={{ uri: editForm.avatar || 'https://via.placeholder.com/150' }}
+                            source={{ uri: editForm.avatar_url || 'https://via.placeholder.com/150' }}
                             style={[styles.avatar, { borderColor: theme.colors.background }]}
                         />
                         <TouchableOpacity
@@ -217,8 +217,8 @@ export const ProfileScreen = ({ navigation, route }: any) => {
 
                     <TextInput
                         style={[styles.editInput, { color: theme.colors.text, fontSize: 24, fontWeight: '800', textAlign: 'center' }]}
-                        value={editForm.nick}
-                        onChangeText={text => setEditForm({ ...editForm, nick: text })}
+                        value={editForm.username}
+                        onChangeText={text => setEditForm({ ...editForm, username: text })}
                         placeholder="Username"
                         placeholderTextColor={theme.colors.textMuted}
                     />
@@ -250,7 +250,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
             <>
                 <View style={styles.avatarContainer}>
                     <Image
-                        source={{ uri: profile.avatar || profile.avatar_url || 'https://via.placeholder.com/150' }}
+                        source={{ uri: profile.avatar_url || 'https://via.placeholder.com/150' }}
                         style={[styles.avatar, { borderColor: theme.colors.background }]}
                     />
                     <View style={[styles.roleBadge, { backgroundColor: theme.colors.primary }]}>
@@ -259,7 +259,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                     </View>
                 </View>
 
-                <Text style={[styles.nick, { color: theme.colors.text }]}>{profile.nick || profile.username}</Text>
+                <Text style={[styles.nick, { color: theme.colors.text }]}>{profile.username}</Text>
                 <Text style={[styles.bio, { color: theme.colors.textMuted }]}>{profile.bio || 'Car enthusiast & nocturnal cruiser'}</Text>
 
                 <View style={styles.locationContainer}>
@@ -283,7 +283,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Header
-                title={isCurrentUser ? "My Profile" : (profile.nick || profile.username)}
+                title={isCurrentUser ? "My Profile" : (profile?.nick || profile?.username || 'Profile')}
                 showBack={!isCurrentUser}
                 onBack={() => navigation.goBack()}
                 rightAction={isCurrentUser ? (
@@ -348,7 +348,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                         <Button
                             title="Send Message"
                             variant="primary"
-                            icon="chatbubble-outline"
+                            icon={<Ionicons name="chatbubble-outline" size={20} color="#FFFFFF" />}
                             style={{ marginTop: 20, width: '100%' }}
                             onPress={() => {
                                 // Navigate to ChatViewScreen (Direct Message)
@@ -357,8 +357,8 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                                 navigation.navigate('ChatViewScreen', {
                                     otherUser: {
                                         id: profile.id,
-                                        username: profile.nick || profile.username,
-                                        avatar: profile.avatar || profile.avatar_url
+                                        username: profile.username,
+                                        avatar: profile.avatar_url
                                     },
                                     conversationId: null // Let ChatScreen resolve or create
                                 });
@@ -383,7 +383,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                             <View key={index} style={[styles.carCard, { backgroundColor: theme.colors.surface }]}>
                                 <Image source={{ uri: car.image || 'https://via.placeholder.com/300x150' }} style={styles.carImage} />
                                 <View style={styles.carInfo}>
-                                    <Text style={[styles.carName, { color: theme.colors.text }]}>{car.make} {car.model}</Text>
+                                    <Text style={[styles.carName, { color: theme.colors.text }]}>{car.brand} {car.model}</Text>
                                     <Text style={[styles.carSpecs, { color: theme.colors.textMuted }]}>{car.year} • {car.hp} HP</Text>
                                 </View>
                             </View>

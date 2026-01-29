@@ -50,8 +50,8 @@ export const LoginScreen = ({ navigation }: any) => {
         } else {
             setUser({
                 id: profile.id,
-                nick: profile.username || 'Sin nombre',
-                avatar: profile.avatar_url || 'https://i.pravatar.cc/150',
+                username: profile.username || 'Sin nombre',
+                avatar_url: profile.avatar_url || 'https://i.pravatar.cc/150',
                 bio: '',
                 location: '',
                 role: profile.role,

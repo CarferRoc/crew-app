@@ -26,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack, onBack, rightAc
                     </View>
 
                     <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>
-                        {title.toUpperCase()}
+                        {title ? title.toUpperCase() : ''}
                     </Text>
 
                     <View style={styles.right}>

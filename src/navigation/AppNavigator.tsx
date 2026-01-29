@@ -39,7 +39,7 @@ const CrewsStack = () => (
         <Stack.Screen name="MyInvites" component={MyInvitesScreen} />
         <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
-        <Stack.Screen name="ChatView" component={ChatViewScreen} />
+        <Stack.Screen name="ChatViewScreen" component={ChatViewScreen} />
     </Stack.Navigator>
 );
 
@@ -57,7 +57,7 @@ const ProfileStack = () => (
 const MessagesStack = () => (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="MessagesMain" component={DirectMessagesScreen} />
-        <Stack.Screen name="ChatView" component={ChatViewScreen} />
+        <Stack.Screen name="ChatViewScreen" component={ChatViewScreen} />
     </Stack.Navigator>
 );
 

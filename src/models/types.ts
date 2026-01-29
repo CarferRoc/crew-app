@@ -1,7 +1,7 @@
 export type User = {
   id: string;
-  nick: string;
-  avatar: string;
+  username: string; // matches DB column
+  avatar_url: string; // matches DB column
   bio: string;
   location: string;
   role: 'user' | 'lider' | 'admin';
@@ -80,8 +80,8 @@ export type CrewEvent = {
 export type ChatMessage = {
   id: string;
   crewId: string;
-  userId: string;
-  text: string;
+  profileId: string;
+  content: string;
   createdAt: string;
 };
 

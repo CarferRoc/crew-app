@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, Alert, TouchableOpacity, Image, Platform, Dimensions } from 'react-native';
+// @ts-ignore
 import MapView, { Marker } from 'react-native-maps';
+// @ts-ignore
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { theme, useAppTheme } from '../theme';
@@ -228,7 +230,7 @@ export const CreateEventScreen = ({ navigation, route }: any) => {
                     <MapView
                         style={styles.map}
                         initialRegion={region}
-                        onPress={(e) => setMarker(e.nativeEvent.coordinate)}
+                        onPress={(e: any) => setMarker(e.nativeEvent.coordinate)}
                     >
                         {marker && <Marker coordinate={marker} />}
                     </MapView>

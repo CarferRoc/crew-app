@@ -88,8 +88,8 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
             let query;
             if (isCrewChat) {
                 query = supabase
-                    .from('chat_messages')
-                    .select('*, user:profiles(nick, avatar)')
+                    .from('crew_messages')
+                    .select('*, user:profiles(username, avatar_url)')
                     .eq('crew_id', crewId)
                     .order('created_at', { ascending: true });
             } else {
@@ -117,7 +117,7 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
 
     const subscribeToMessages = () => {
         const channelName = isCrewChat ? `crew_chat:${crewId}` : `dm:${conversationId}`;
-        const tableName = isCrewChat ? 'chat_messages' : 'direct_messages';
+        const tableName = isCrewChat ? 'crew_messages' : 'direct_messages';
         const filter = isCrewChat ? `crew_id=eq.${crewId}` : `conversation_id=eq.${conversationId}`;
 
         console.log('Subscribing to channel:', channelName);
@@ -132,7 +132,7 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
                 const newMessage = payload.new;
                 // For crew chat, we might need to fetch user details to display
                 if (isCrewChat) {
-                    const { data: userData } = await supabase.from('profiles').select('nick, avatar').eq('id', newMessage.user_id).single();
+                    const { data: userData } = await supabase.from('profiles').select('username, avatar_url').eq('id', newMessage.profile_id).single();
                     newMessage.user = userData;
                 }
                 setMessages(prev => [...prev, newMessage]);
@@ -150,10 +150,10 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
 
         try {
             if (isCrewChat) {
-                const { error } = await supabase.from('chat_messages').insert({
+                const { error } = await supabase.from('crew_messages').insert({
                     crew_id: crewId,
-                    user_id: currentUser?.id,
-                    text: textToSend
+                    profile_id: currentUser?.id,
+                    content: textToSend
                 });
                 if (error) throw error;
             } else {
@@ -202,17 +202,17 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
                     style={styles.chatScroll}
                 >
                     {messages.map((msg, idx) => {
-                        const isMe = (isCrewChat ? msg.user_id : msg.sender_id) === currentUser?.id;
+                        const isMe = (isCrewChat ? msg.profile_id : msg.sender_id) === currentUser?.id;
                         return (
                             <View key={msg.id || idx} style={{
                                 alignSelf: isMe ? 'flex-end' : 'flex-start',
                                 maxWidth: '80%',
                                 marginBottom: 10,
                             }}>
-                                {!isMe && isCrewChat && <Text style={{ fontSize: 10, color: activeTheme.colors.textMuted, marginBottom: 2, marginLeft: 12 }}>{msg.user?.nick || 'User'}</Text>}
+                                {!isMe && isCrewChat && <Text style={{ fontSize: 10, color: activeTheme.colors.textMuted, marginBottom: 2, marginLeft: 12 }}>{msg.user?.username || 'User'}</Text>}
                                 <View style={[styles.chatMessage, isMe ? styles.myMessage : { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border }]}>
                                     <Text style={[styles.chatText, { color: isMe ? '#FFF' : activeTheme.colors.text }]}>
-                                        {isCrewChat ? msg.text : msg.content}
+                                        {msg.content}
                                     </Text>
                                 </View>
                             </View>

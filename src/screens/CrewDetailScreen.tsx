@@ -37,7 +37,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'crew_members', filter: `crew_id=eq.${crewId}` }, () => {
                 fetchCrewData();
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'crew_events', filter: `crew_id=eq.${crewId}` }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `crew_id=eq.${crewId}` }, () => {
                 fetchCrewData();
             })
             .subscribe();
@@ -86,8 +86,8 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                     ...m,
                     user: profile ? {
                         ...profile,
-                        nick: profile.username,
-                        avatar: profile.avatar_url
+                        username: profile.username,
+                        avatar_url: profile.avatar_url
                     } : null
                 };
             });
@@ -169,8 +169,8 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                     ...r,
                     user: profile ? {
                         ...profile,
-                        nick: profile.username,
-                        avatar: profile.avatar_url
+                        username: profile.username,
+                        avatar_url: profile.avatar_url
                     } : null
                 };
             });
@@ -373,7 +373,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                         onPress={generateInviteCode}
                         variant="secondary"
                         style={{ marginBottom: 10 }}
-                        icon="copy-outline"
+                        icon={<Ionicons name="copy-outline" size={20} color="#FFFFFF" />}
                     />
                 </View>
             )}
@@ -383,15 +383,15 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                     <Text style={[styles.requestsTitle, { color: theme.colors.accent }]}>
                         {pendingRequests.length} Solicitudes Pendientes
                     </Text>
-                    {pendingRequests.map(req => (
-                        <View key={req.id} style={[styles.requestItem, { borderBottomColor: theme.colors.border }]}>
+                    {pendingRequests.map((req, index) => (
+                        <View key={`${req.id}-${index}`} style={[styles.requestItem, { borderBottomColor: theme.colors.border }]}>
                             <View style={styles.requestUser}>
                                 <Image
-                                    source={{ uri: req.user?.avatar || 'https://via.placeholder.com/40' }}
+                                    source={{ uri: req.user?.avatar_url || 'https://via.placeholder.com/40' }}
                                     style={styles.avatarSmall}
                                 />
                                 <View style={{ marginLeft: 10, flex: 1 }}>
-                                    <Text style={[styles.userName, { color: theme.colors.text }]}>{req.user?.nick}</Text>
+                                    <Text style={[styles.userName, { color: theme.colors.text }]}>{req.user?.username}</Text>
                                     <Text style={[styles.requestMessage, { color: theme.colors.textMuted }]}>{req.message}</Text>
                                 </View>
                             </View>
@@ -412,15 +412,15 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 <View style={styles.sectionHeader}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>MEMBERS ({members.length})</Text>
                 </View>
-                {members.map((member) => (
+                {members.map((member, index) => (
                     <TouchableOpacity
-                        key={member.id}
+                        key={`${member.id}-${index}`}
                         style={[styles.memberCard, { backgroundColor: theme.colors.surface }]}
                         onPress={() => navigation.navigate('Profile', { userId: member.profile_id })}
                     >
-                        <Image source={{ uri: member.user?.avatar || 'https://via.placeholder.com/50' }} style={styles.avatar} />
+                        <Image source={{ uri: member.user?.avatar_url || 'https://via.placeholder.com/50' }} style={styles.avatar} />
                         <View style={styles.memberInfo}>
-                            <Text style={[styles.memberName, { color: theme.colors.text }]}>{member.user?.nick}</Text>
+                            <Text style={[styles.memberName, { color: theme.colors.text }]}>{member.user?.username}</Text>
                             <Text style={[styles.memberRole, { color: theme.colors.textMuted }]}>{member.role === 'crew_lider' ? 'Leader' : 'Member'}</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
@@ -460,7 +460,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 <Button
                     title="Create Event"
                     onPress={() => navigation.navigate('CreateEvent', { crewId })}
-                    icon="add-circle-outline"
+                    icon={<Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />}
                     style={{ marginBottom: 20 }}
                 />
             )}
@@ -468,8 +468,8 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
             {userCrewRole === 'crew_lider' && pendingEvents.length > 0 && (
                 <View style={[styles.pendingEventsContainer, { borderColor: theme.colors.accent }]}>
                     <Text style={{ color: theme.colors.accent, fontWeight: 'bold', marginBottom: 10 }}>QUEDADAS PENDIENTES</Text>
-                    {pendingEvents.map(evt => (
-                        <View key={evt.id} style={[styles.pendingEventItem, { backgroundColor: theme.colors.surfaceVariant }]}>
+                    {pendingEvents.map((evt, index) => (
+                        <View key={`${evt.id}-${index}`} style={[styles.pendingEventItem, { backgroundColor: theme.colors.surfaceVariant }]}>
                             <Text style={{ color: theme.colors.text, fontWeight: 'bold' }}>{evt.title}</Text>
                             <Text style={{ color: theme.colors.textMuted }}>{new Date(evt.date_time).toLocaleDateString()}</Text>
                             <View style={{ flexDirection: 'row', marginTop: 10, justifyContent: 'flex-end' }}>
@@ -492,9 +492,9 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                     <Text style={{ color: theme.colors.textMuted, marginTop: 10 }}>No upcoming events</Text>
                 </View>
             ) : (
-                events.map(event => (
+                events.map((event, index) => (
                     <EventCard
-                        key={event.id}
+                        key={`${event.id}-${index}`}
                         event={event}
                         onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
                         canDelete={userCrewRole === 'crew_lider'}
@@ -511,9 +511,10 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
             <Header
                 title={crew.name}
                 showBack
+                onBack={() => navigation.goBack()}
                 rightAction={
                     <View style={styles.headerRight}>
-                        {!!crew.isVerified && <Ionicons name="checkmark-circle" size={20} color={theme.colors.secondary} style={{ marginRight: 8 }} />}
+                        {crew.isVerified ? <Ionicons name="checkmark-circle" size={20} color={theme.colors.secondary} style={{ marginRight: 8 }} /> : null}
                     </View>
                 }
             />

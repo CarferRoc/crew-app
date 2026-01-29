@@ -11,8 +11,8 @@ import { uploadImage } from '../lib/storage';
 export const EditProfileScreen = ({ navigation }: any) => {
     const { currentUser, updateProfile } = useStore();
     const activeTheme = useAppTheme();
-    const [nick, setNick] = useState(currentUser?.nick || '');
-    const [avatar, setAvatar] = useState(currentUser?.avatar || '');
+    const [username, setUsername] = useState(currentUser?.username || '');
+    const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatar_url || '');
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
 
@@ -28,7 +28,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
             setUploading(true);
             try {
                 const publicUrl = await uploadImage(result.assets[0].uri, 'avatars', `profiles/${currentUser?.id}`);
-                setAvatar(publicUrl);
+                setAvatarUrl(publicUrl);
                 Alert.alert('Éxito', 'Foto subida correctamente');
             } catch (error: any) {
                 console.error('Upload error:', error);
@@ -46,15 +46,15 @@ export const EditProfileScreen = ({ navigation }: any) => {
         const { error } = await supabase
             .from('profiles')
             .update({
-                username: nick,
-                avatar_url: avatar,
+                username: username,
+                avatar_url: avatarUrl,
             })
             .eq('id', currentUser.id);
 
         if (error) {
             Alert.alert('Error', error.message);
         } else {
-            updateProfile({ nick, avatar });
+            updateProfile({ username: username, avatar_url: avatarUrl });
             Alert.alert('Éxito', 'Perfil actualizado correctamente');
             navigation.goBack();
         }
@@ -67,7 +67,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
             <ScrollView contentContainerStyle={styles.scroll}>
                 <View style={[styles.compactHeader, { borderBottomColor: activeTheme.colors.border }]}>
                     <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
-                        <Image source={{ uri: avatar || 'https://i.pravatar.cc/150' }} style={[styles.avatar, { borderColor: activeTheme.colors.primary }]} />
+                        <Image source={{ uri: avatarUrl || 'https://i.pravatar.cc/150' }} style={[styles.avatar, { borderColor: activeTheme.colors.primary }]} />
                         <View style={[styles.editIconBadge, { backgroundColor: activeTheme.colors.primary }]}>
                             {uploading ? <ActivityIndicator size="small" color="white" /> : <Text style={styles.editIconText}>✎</Text>}
                         </View>
@@ -77,8 +77,8 @@ export const EditProfileScreen = ({ navigation }: any) => {
                         <Text style={[styles.label, { color: activeTheme.colors.textMuted }]}>Tu Apodo</Text>
                         <TextInput
                             style={[styles.input, { backgroundColor: activeTheme.colors.surface, color: activeTheme.colors.text, borderColor: activeTheme.colors.border }]}
-                            value={nick}
-                            onChangeText={setNick}
+                            value={username}
+                            onChangeText={setUsername}
                             placeholder="Tu apodo"
                             placeholderTextColor={activeTheme.colors.textMuted}
                         />
