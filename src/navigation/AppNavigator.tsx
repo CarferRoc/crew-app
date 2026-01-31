@@ -25,6 +25,7 @@ import { CreateEventScreen } from '../screens/CreateEventScreen';
 import { useStore } from '../store/useStore';
 
 import { Ionicons } from '@expo/vector-icons';
+import { LigaScreen } from '../screens/LigaScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -142,6 +143,11 @@ export const AppNavigator = () => {
                         name="Rewards"
                         component={RewardsScreen}
                         options={{ tabBarLabel: 'Premios' }}
+                    />
+                    <Tab.Screen
+                        name="Liga"
+                        component={LigaScreen}
+                        options={{ tabBarLabel: 'Liga' }}
                     />
                     {/*
                     <Tab.Screen
