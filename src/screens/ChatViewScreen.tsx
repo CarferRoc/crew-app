@@ -19,6 +19,7 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
     const [uploading, setUploading] = useState(false);
     const [showAttachMenu, setShowAttachMenu] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [activeConversationId, setActiveConversationId] = useState<string | null>(conversationId);
     const activeTheme = useAppTheme();
     const scrollViewRef = useRef<ScrollView>(null);
 
@@ -26,49 +27,43 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
     const headerTitle = title || otherUser?.username || 'Chat';
 
     useEffect(() => {
-        fetchMessages();
-        const unsubscribe = subscribeToMessages();
+        let subscription: any;
+
+        const initChat = async () => {
+            setLoading(true);
+            try {
+                let targetId = conversationId;
+
+                // If DM and no ID, resolve implementation
+                if (!isCrewChat && !targetId && otherUser) {
+                    try {
+                        targetId = await useStore.getState().getOrCreateConversation(otherUser.id);
+                    } catch (err) {
+                        console.error("Error getting conversation:", err);
+                    }
+                }
+
+                if (targetId) setActiveConversationId(targetId);
+
+                await fetchMessages(targetId);
+                subscription = subscribeToMessages(targetId);
+
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initChat();
+
         return () => {
-            if (unsubscribe) unsubscribe();
+            if (subscription) subscription.unsubscribe();
         };
     }, [conversationId, crewId]);
 
-    const fetchMessages = async () => {
-        setLoading(true);
+    const fetchMessages = async (targetId: string | null) => {
         try {
-            // ... (Same initialization logic as before for DMs)
-            let targetConversationId = conversationId;
-
-            if (!isCrewChat && !targetConversationId && otherUser) {
-                const { data: existingConvos } = await supabase
-                    .from('conversation_participants')
-                    .select('conversation_id')
-                    .eq('user_id', currentUser?.id);
-
-                // Simplified lookup for brevity in this fix
-                if (existingConvos && existingConvos.length > 0) {
-                    // In real app, check intersection. For now assume creation or skip
-                }
-
-                if (!targetConversationId) {
-                    // Create if needed
-                    const { data: newConvo } = await supabase.from('conversations').insert({ type: 'individual' }).select().single();
-                    if (newConvo) {
-                        targetConversationId = newConvo.id;
-                        await supabase.from('conversation_participants').insert([
-                            { conversation_id: targetConversationId, user_id: currentUser?.id },
-                            { conversation_id: targetConversationId, user_id: otherUser.id }
-                        ]);
-                    }
-                }
-            }
-
-            if (!targetConversationId && !isCrewChat) {
-                setMessages([]);
-                setLoading(false);
-                return;
-            }
-
             let query;
             if (isCrewChat) {
                 query = supabase
@@ -76,12 +71,15 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
                     .select('*, user:profiles(username, avatar_url)')
                     .eq('crew_id', crewId)
                     .order('created_at', { ascending: true });
-            } else {
+            } else if (targetId) {
                 query = supabase
                     .from('direct_messages')
                     .select('*')
-                    .eq('conversation_id', targetConversationId)
+                    .eq('conversation_id', targetId)
                     .order('created_at', { ascending: true });
+            } else {
+                setMessages([]);
+                return;
             }
 
             const { data, error } = await query;
@@ -94,15 +92,15 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
             }
         } catch (error) {
             console.error(error);
-        } finally {
-            setLoading(false);
         }
     };
 
-    const subscribeToMessages = () => {
-        const channelName = isCrewChat ? `crew_chat:${crewId}` : `dm:${conversationId}`;
+    const subscribeToMessages = (targetId: string | null) => {
+        const channelName = isCrewChat ? `crew_chat:${crewId}` : `dm:${targetId}`;
         const tableName = isCrewChat ? 'crew_messages' : 'direct_messages';
-        const filter = isCrewChat ? `crew_id=eq.${crewId}` : `conversation_id=eq.${conversationId}`;
+        const filter = isCrewChat ? `crew_id=eq.${crewId}` : `conversation_id=eq.${targetId}`;
+
+        if (!isCrewChat && !targetId) return null;
 
         const channel = supabase
             .channel(channelName)
@@ -121,7 +119,7 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
             })
             .subscribe();
 
-        return () => supabase.removeChannel(channel);
+        return channel;
     };
 
     const sendMessage = async (content: string, type: 'text' | 'image' | 'file' = 'text', mediaUrl?: string) => {
@@ -138,8 +136,12 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
                 });
                 if (error) throw error;
             } else {
+                if (!activeConversationId) {
+                    Alert.alert('Error', 'Conversation not ready');
+                    return;
+                }
                 const { error } = await supabase.from('direct_messages').insert({
-                    conversation_id: conversationId,
+                    conversation_id: activeConversationId,
                     sender_id: currentUser?.id,
                     content: content || (type === 'image' ? 'Image' : 'File'),
                     type,
@@ -150,7 +152,7 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
                 await supabase.from('conversations').update({
                     last_message: content || (type === 'image' ? 'Image' : 'File'),
                     updated_at: new Date().toISOString()
-                }).eq('id', conversationId);
+                }).eq('id', activeConversationId);
             }
             setChatText('');
         } catch (error) {

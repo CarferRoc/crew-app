@@ -683,34 +683,62 @@ export const useStore = create<AppState>((set, get) => ({
             const { currentUser } = get();
             if (!currentUser) return null;
 
-            const participantIds = [currentUser.id, otherUserId].sort();
+            // Sort IDs to ensure consistent order for participant columns
+            const ids = [currentUser.id, otherUserId].sort();
+            const p1 = ids[0];
+            const p2 = ids[1];
 
-            // Check if exists
+            // 1. Direct Lookup in conversations table (Primary Source of Truth)
             const { data: existing } = await supabase
                 .from('conversations')
                 .select('id')
-                .eq('participant1_id', participantIds[0])
-                .eq('participant2_id', participantIds[1])
-                .single();
+                .eq('participant1_id', p1)
+                .eq('participant2_id', p2)
+                .maybeSingle();
 
-            if (existing) return existing.id;
+            if (existing) {
+                return existing.id;
+            }
 
-            // Create new
-            const { data: newConv, error } = await supabase
+            // 2. Create new conversation if not found
+            const { data: newConv, error: createError } = await supabase
                 .from('conversations')
                 .insert({
-                    participant1_id: participantIds[0],
-                    participant2_id: participantIds[1],
-                    last_message: 'Nueva conversación'
+                    participant1_id: p1,
+                    participant2_id: p2,
+                    last_message: 'Nueva conversación',
+                    updated_at: new Date().toISOString()
                 })
                 .select('id')
                 .single();
 
-            if (error) {
-                console.error('Conversation Create Error:', error);
-                Alert.alert('Chat Error', JSON.stringify(error));
-                throw error;
+            if (createError) {
+                // Handle Race Condition / Duplicate (PGRST204 or 23505)
+                if (createError.code === '23505') {
+                    // It was created by someone else in the meantime, fetch it
+                    const { data: retry } = await supabase
+                        .from('conversations')
+                        .select('id')
+                        .eq('participant1_id', p1)
+                        .eq('participant2_id', p2)
+                        .maybeSingle();
+                    return retry?.id || null;
+                }
+                throw createError;
             }
+
+            // 3. Add participants to junction table (Best effort for compatibility)
+            const { error: partError } = await supabase
+                .from('conversation_participants')
+                .insert([
+                    { conversation_id: newConv.id, user_id: currentUser.id },
+                    { conversation_id: newConv.id, user_id: otherUserId }
+                ]);
+
+            if (partError) {
+                console.warn('Could not add to conversation_participants:', partError);
+            }
+
             return newConv.id;
         } catch (error) {
             console.error('Error getting conversation:', error);
