@@ -98,7 +98,9 @@ export type League = {
   id: string;
   name: string;
   code: string;
-  created_by: string;
+  level: number;
+  description: string;
+  created_by?: string;
   created_at?: string;
 };
 
@@ -196,12 +198,8 @@ export type RewardVoucher = {
 
 // Ranking System Types
 
-export type League = {
-  id: string;
-  name: string;
-  level: number;
-  description: string;
-};
+// Consolidated League type in line 97
+
 
 export type ClanWarEvent = {
   id: string;

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, Crew, CrewEvent, Battle, RewardVoucher, ChatMessage, Conversation, DirectMessage, GarageCar } from '../models/types';
 import { supabase } from '../lib/supabase';
+import { RankingService } from '../services/RankingService';
 import { Alert } from 'react-native';
 
 interface AppState {
@@ -219,6 +220,7 @@ export const useStore = create<AppState>((set, get) => ({
             capacity: eventData.capacity || 10,
             attendees: [currentUser.id],
             status: 'upcoming',
+            eventType: eventData.eventType || 'aesthetic',
         };
 
         set(state => ({
@@ -309,7 +311,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
-    chooseBattleWinner: (battleId: string, winnerCrewId: string) => {
+    chooseBattleWinner: async (battleId: string, winnerCrewId: string) => {
+        // Optimistic Update
         set(state => ({
             battles: state.battles.map(b =>
                 b.id === battleId
@@ -322,6 +325,30 @@ export const useStore = create<AppState>((set, get) => ({
                     : c
             )
         }));
+
+        try {
+            // 1. Persist Battle Update
+            const { error } = await supabase
+                .from('battles')
+                .update({ winner_crew_id: winnerCrewId, decided_by_admin: true })
+                .eq('id', battleId);
+
+            if (error) throw error;
+
+            // 2. Add Points to Active War (if any)
+            const activeEvents = await RankingService.getActiveEvents();
+            // Assuming the first active event is the current one (normally only 1 active)
+            const currentWar = activeEvents.find(e => e.status === 'active');
+
+            if (currentWar) {
+                // Add 50 points to the crew in this war
+                await RankingService.addEventScore(currentWar.id, winnerCrewId, 50);
+            }
+
+        } catch (error) {
+            console.error('Error updating battle winner:', error);
+            // Revert details could handle here, but for MVP we log
+        }
     },
 
     redeemVoucher: (voucherId: string, userId: string) => {
