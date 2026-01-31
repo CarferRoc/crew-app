@@ -59,6 +59,7 @@ export type Crew = {
   invites: string[]; // Invite codes
   inviteCode?: string; // Single invite code for joining
   isVerified?: boolean;
+  location?: string;
 };
 
 export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'pending';
