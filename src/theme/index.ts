@@ -1,3 +1,5 @@
+import { useStore } from '../store/useStore';
+
 const commonTheme = {
     spacing: {
         xs: 4,
@@ -76,7 +78,6 @@ export const lightTheme = {
 
 export const theme = darkTheme;
 
-import { useStore } from '../store/useStore';
 
 export const useAppTheme = () => {
     const isDarkMode = useStore((state) => state.isDarkMode);
