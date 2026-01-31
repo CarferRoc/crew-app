@@ -113,6 +113,11 @@ export type Crew = {
   invites: string[]; // Invite codes
   inviteCode?: string; // Single invite code for joining
   isVerified?: boolean;
+  // Ranking System
+  leagueId?: string;
+  leagueName?: string;
+  leagueLevel?: number;
+  totalSeasonPoints?: number;
 };
 
 export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'pending';
@@ -187,6 +192,51 @@ export type RewardVoucher = {
   code: string;
   expiresAt: string;
   isRedeemed?: boolean;
+};
+
+// Ranking System Types
+
+export type League = {
+  id: string;
+  name: string;
+  level: number;
+  description: string;
+};
+
+export type ClanWarEvent = {
+  id: string;
+  name: string;
+  event_date: string;
+  status: 'pending' | 'active' | 'completed';
+  created_at: string;
+};
+
+export type EventParticipation = {
+  id: string;
+  event_id: string;
+  crew_id: string;
+  total_score: number;
+  rank: number;
+  bonus_points: number;
+  crew?: {
+    name: string;
+    badge: string;
+  };
+};
+
+export type CarEvaluation = {
+  id: string;
+  event_id: string;
+  crew_id: string;
+  member_id: string;
+  car_name: string;
+  car_image_url?: string;
+  score_aesthetics: number;
+  score_power: number;
+  score_sound: number;
+  score_x_factor: number;
+  admin_notes?: string;
+  total_score?: number; // Calculated field
 };
 
 export type GarageCar = {

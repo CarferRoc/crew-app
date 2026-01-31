@@ -174,23 +174,29 @@ export const useStore = create<AppState>((set, get) => ({
                 .from('crews')
                 .select(`
                     *,
-                    members_data:crew_members(profile_id)
+                    members_data:crew_members(profile_id),
+                    league:leagues(id, name, level)
                 `)
-                .order('created_at', { ascending: false });
+                .order('total_season_points', { ascending: false }); // Sort by score by default
 
             if (error) throw error;
 
-            const mappedCrews: Crew[] = (data || []).map(c => ({
+            const mappedCrews: Crew[] = (data || []).map((c: any) => ({
                 id: c.id,
                 name: c.name,
                 badge: c.image_url || '',
                 privacy: 'public',
                 members: c.members_data?.map((m: any) => m.profile_id) || [],
-                scoreCrew: c.score_crew || 0,
+                scoreCrew: c.total_season_points || 0,
                 createdBy: c.created_by,
                 invites: [],
                 inviteCode: c.invite_code,
-                isVerified: false
+                isVerified: false,
+                // Ranking Mapping
+                leagueId: c.league?.id,
+                leagueName: c.league?.name || 'Unranked',
+                leagueLevel: c.league?.level || 0,
+                totalSeasonPoints: c.total_season_points || 0
             }));
 
             set({ crews: mappedCrews });
