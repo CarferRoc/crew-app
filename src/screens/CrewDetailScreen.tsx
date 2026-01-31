@@ -32,6 +32,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
     const [allianceRequests, setAllianceRequests] = useState<any[]>([]);
     const [myManagedCrews, setMyManagedCrews] = useState<any[]>([]);
     const [showConnectModal, setShowConnectModal] = useState(false);
+    const [showLeaderSelection, setShowLeaderSelection] = useState(false);
 
     const scrollViewRef = useRef<ScrollView>(null);
 
@@ -347,6 +348,46 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
 
     const userCrewRole = currentMember?.role;
 
+    const handleLeaveCrew = async (newLeaderId?: string) => {
+        if (!globalUser) return;
+
+        // Case 1: Leader triggering the flow (initial click)
+        if (userCrewRole === 'crew_lider' && members.length > 1 && !newLeaderId) {
+            setShowLeaderSelection(true);
+            return;
+        }
+
+        // Case 2: Simple leave (Member leave, or Leader leaving as last person, or confirmed transfer)
+        if (!newLeaderId) {
+            Alert.alert('Abandonar Crew', '¿Estás seguro de que quieres salir de esta crew?', [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Sí, Salir',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const success = await useStore.getState().leaveCrew(crewId, globalUser.id);
+                        if (success) navigation.goBack();
+                        else Alert.alert('Error', 'No se pudo salir');
+                    }
+                }
+            ]);
+            return;
+        }
+
+        // Case 3: Leader confirmed transfer
+        try {
+            const success = await useStore.getState().leaveCrew(crewId, globalUser.id, newLeaderId);
+            if (success) {
+                setShowLeaderSelection(false);
+                navigation.goBack();
+            } else {
+                Alert.alert('Error', 'Failed to transfer and leave');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'An error occurred');
+        }
+    };
+
     const renderTabs = () => (
         <View style={styles.tabContainer}>
             <TouchableOpacity
@@ -587,23 +628,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 <View style={styles.section}>
                     <Button
                         title="Abandonar Crew"
-                        onPress={() => {
-                            Alert.alert('Abandonar Crew', '¿Estás seguro de que quieres salir de esta crew?', [
-                                { text: 'Cancelar', style: 'cancel' },
-                                {
-                                    text: 'Sí, Salir',
-                                    style: 'destructive',
-                                    onPress: async () => {
-                                        const success = await useStore.getState().leaveCrew(crewId, globalUser.id);
-                                        if (success) {
-                                            navigation.goBack();
-                                        } else {
-                                            Alert.alert('Error', 'No se pudo salir de la crew');
-                                        }
-                                    }
-                                }
-                            ]);
-                        }}
+                        onPress={() => handleLeaveCrew()}
                         variant="secondary" // Or a specific danger variant if available, secondary is usually subtle
                         style={{ marginTop: 20, borderColor: theme.colors.error, borderWidth: 1 }}
                         textStyle={{ color: theme.colors.error }}
@@ -730,6 +755,38 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                             ))
                         )}
                         <Button title="Cancel" onPress={() => setShowConnectModal(false)} variant="secondary" style={{ marginTop: 15 }} />
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal visible={showLeaderSelection} transparent={true} animationType="slide" onRequestClose={() => setShowLeaderSelection(false)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+                    <View style={{ backgroundColor: theme.colors.surface, borderRadius: 12, padding: 20, maxHeight: '80%' }}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.text, marginBottom: 5 }}>Select New Leader</Text>
+                        <Text style={{ color: theme.colors.textMuted, marginBottom: 15 }}>You must select a new leader before leaving.</Text>
+
+                        <ScrollView>
+                            {members.filter(m => m.profile_id !== globalUser?.id).map((member, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                                    onPress={() => {
+                                        Alert.alert('Confirm', `Make ${member.user?.username} the new leader and leave?`, [
+                                            { text: 'Cancel', style: 'cancel' },
+                                            { text: 'Confirm', onPress: () => handleLeaveCrew(member.profile_id) }
+                                        ]);
+                                    }}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Image source={{ uri: member.user?.avatar_url || 'https://via.placeholder.com/30' }} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }} />
+                                        <Text style={{ color: theme.colors.text, fontWeight: 'bold' }}>{member.user?.username}</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        <Button title="Cancel" onPress={() => setShowLeaderSelection(false)} variant="secondary" style={{ marginTop: 15 }} />
                     </View>
                 </View>
             </Modal>
