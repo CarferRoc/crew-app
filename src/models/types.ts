@@ -123,3 +123,14 @@ export type RewardVoucher = {
   expiresAt: string;
   isRedeemed?: boolean;
 };
+
+export type GarageCar = {
+  id: string;
+  userId: string;
+  name: string;
+  nickname: string;
+  power: string; // Text or number, effectively text for simplicity if user types "300 HP"
+  specs: string; // Long text
+  photos: string[];
+  createdAt: string;
+};

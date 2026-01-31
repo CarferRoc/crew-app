@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { User, Crew, CrewEvent, Battle, RewardVoucher, ChatMessage, Conversation, DirectMessage } from '../models/types';
+import { User, Crew, CrewEvent, Battle, RewardVoucher, ChatMessage, Conversation, DirectMessage, GarageCar } from '../models/types';
 import { supabase } from '../lib/supabase';
 import { Alert } from 'react-native';
 
@@ -13,6 +13,7 @@ interface AppState {
     messages: Record<string, ChatMessage[]>; // crewId -> messages
     conversations: Conversation[];
     directMessages: Record<string, DirectMessage[]>; // conversationId -> messages
+    garage: GarageCar[];
     isDarkMode: boolean;
 
     // Actions
@@ -61,6 +62,10 @@ interface AppState {
     deleteAlliance: (allianceId: string) => Promise<boolean>;
     fetchCrewAlliances: (crewId: string) => Promise<any[]>;
     leaveCrew: (crewId: string, userId: string, newLeaderId?: string) => Promise<boolean>;
+
+    // Garage
+    fetchGarage: (userId: string) => Promise<void>;
+    addCarToGarage: (car: Omit<GarageCar, 'id' | 'createdAt'>) => Promise<boolean>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -73,6 +78,7 @@ export const useStore = create<AppState>((set, get) => ({
     messages: {},
     conversations: [],
     directMessages: {},
+    garage: [],
     isDarkMode: true,
 
     setUsers: (users: User[]) => set({ users }),
@@ -904,6 +910,61 @@ export const useStore = create<AppState>((set, get) => ({
             return true;
         } catch (error) {
             console.error('Error leaving crew:', error);
+            return false;
+        }
+    },
+
+    fetchGarage: async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('garaje')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const mapped: GarageCar[] = (data || []).map(item => ({
+                id: item.id,
+                userId: item.user_id,
+                name: item.name,
+                nickname: item.nickname,
+                power: item.power,
+                specs: item.specs,
+                photos: item.photos || [],
+                createdAt: item.created_at
+            }));
+
+            set({ garage: mapped });
+        } catch (error) {
+            console.error('Error fetching garage:', error);
+            set({ garage: [] });
+        }
+    },
+
+    addCarToGarage: async (car) => {
+        try {
+            const { currentUser } = get();
+            if (!currentUser) return false;
+
+            const { error } = await supabase
+                .from('garaje')
+                .insert({
+                    user_id: currentUser.id,
+                    name: car.name,
+                    nickname: car.nickname,
+                    power: car.power,
+                    specs: car.specs,
+                    photos: car.photos
+                });
+
+            if (error) throw error;
+
+            // Refresh if it's my garage
+            await get().fetchGarage(currentUser.id);
+            return true;
+        } catch (error) {
+            console.error('Error adding car to garage:', error);
             return false;
         }
     }

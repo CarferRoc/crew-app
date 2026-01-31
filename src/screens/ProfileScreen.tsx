@@ -7,15 +7,13 @@ import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/Button';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { decode } from 'base64-arraybuffer';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export const ProfileScreen = ({ navigation, route }: any) => {
     const params = route.params || {};
     const userId = params.userId;
-    const { currentUser, setUser } = useStore();
+    const { currentUser, setUser, fetchGarage, garage } = useStore();
     const theme = useAppTheme();
 
     // If no userId provided, assume current user
@@ -25,7 +23,6 @@ export const ProfileScreen = ({ navigation, route }: any) => {
     const [profile, setProfile] = React.useState<any>(isCurrentUser ? currentUser : null);
     const [loading, setLoading] = React.useState(true);
     const [uploading, setUploading] = React.useState(false);
-    const [cars, setCars] = React.useState<any[]>([]);
 
     // Edit Mode State
     const [isEditing, setIsEditing] = React.useState(false);
@@ -39,6 +36,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
     React.useEffect(() => {
         if (profileId) {
             fetchProfile();
+            fetchGarage(profileId);
         }
     }, [profileId]);
 
@@ -56,7 +54,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
     const pickImage = async () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 allowsEditing: true,
                 aspect: [1, 1],
                 quality: 0.5,
@@ -73,14 +71,8 @@ export const ProfileScreen = ({ navigation, route }: any) => {
     const uploadImage = async (uri: string) => {
         try {
             setUploading(true);
-
-            console.log('Starting upload for:', uri);
-
-            // Use fetch to get the blob (Standard Expo way)
             const response = await fetch(uri);
             const blob = await response.blob();
-
-            // Convert blob to ArrayBuffer
             const arrayBuffer = await new Response(blob).arrayBuffer();
 
             const filePath = `${profileId}/${new Date().getTime()}.jpg`;
@@ -119,19 +111,6 @@ export const ProfileScreen = ({ navigation, route }: any) => {
 
             if (userError) throw userError;
             setProfile(userData);
-
-            // Fetch Cars from 'cars' table
-            const { data: carsData, error: carsError } = await supabase
-                .from('cars')
-                .select('*')
-                .eq('owner_id', profileId);
-
-            if (!carsError && carsData) {
-                setCars(carsData);
-            } else {
-                setCars([]);
-            }
-
         } catch (error) {
             console.error(error);
         } finally {
@@ -143,10 +122,10 @@ export const ProfileScreen = ({ navigation, route }: any) => {
         try {
             setLoading(true);
             const updates = {
-                username: editForm.username, // Saving to 'username' column
+                username: editForm.username,
                 bio: editForm.bio,
                 location: editForm.location,
-                avatar_url: editForm.avatar_url, // Saving to 'avatar_url' column
+                avatar_url: editForm.avatar_url,
                 updated_at: new Date().toISOString(),
             };
 
@@ -157,7 +136,6 @@ export const ProfileScreen = ({ navigation, route }: any) => {
 
             if (error) throw error;
 
-            // Update local state knowing the keys might differ in UI vs DB
             const updatedProfile = {
                 ...profile,
                 ...updates,
@@ -168,7 +146,6 @@ export const ProfileScreen = ({ navigation, route }: any) => {
             setProfile(updatedProfile);
             setIsEditing(false);
 
-            // Update global store if it's the current user
             if (isCurrentUser) {
                 // @ts-ignore
                 setUser({ ...currentUser, ...updatedProfile });
@@ -307,7 +284,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                         </View>
                         <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
                         <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: theme.colors.text }]}>{cars.length}</Text>
+                            <Text style={[styles.statValue, { color: theme.colors.text }]}>{garage.length}</Text>
                             <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>CARS</Text>
                         </View>
                         <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
@@ -351,16 +328,13 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                             icon={<Ionicons name="chatbubble-outline" size={20} color="#FFFFFF" />}
                             style={{ marginTop: 20, width: '100%' }}
                             onPress={() => {
-                                // Navigate to ChatViewScreen (Direct Message)
-                                // We need conversationId. Ideally we find existing or create one.
-                                // For now, passing otherUser details and letting ChatScreen handle it or use a simplified flow
                                 navigation.navigate('ChatViewScreen', {
                                     otherUser: {
                                         id: profile.id,
                                         username: profile.username,
                                         avatar: profile.avatar_url
                                     },
-                                    conversationId: null // Let ChatScreen resolve or create
+                                    conversationId: null
                                 });
                             }}
                         />
@@ -372,26 +346,46 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                     <View style={styles.sectionHeader}>
                         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>GARAGE</Text>
                         {isCurrentUser && (
-                            <TouchableOpacity onPress={() => Alert.alert('Add Car', 'Add car flow')}>
+                            <TouchableOpacity onPress={() => navigation.navigate('AddCar')}>
                                 <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
                             </TouchableOpacity>
                         )}
                     </View>
 
-                    {cars.length > 0 ? (
-                        cars.map((car, index) => (
-                            <View key={index} style={[styles.carCard, { backgroundColor: theme.colors.surface }]}>
-                                <Image source={{ uri: car.image || 'https://via.placeholder.com/300x150' }} style={styles.carImage} />
+                    {garage.length > 0 ? (
+                        garage.map((car, index) => (
+                            <TouchableOpacity
+                                key={index}
+                                style={[styles.carCard, { backgroundColor: theme.colors.surface }]}
+                                onPress={() => navigation.navigate('CarDetail', { car })}
+                            >
+                                <Image
+                                    source={{ uri: car.photos?.[0] || 'https://via.placeholder.com/300x160' }}
+                                    style={styles.carImage}
+                                    resizeMode="cover"
+                                />
                                 <View style={styles.carInfo}>
-                                    <Text style={[styles.carName, { color: theme.colors.text }]}>{car.brand} {car.model}</Text>
-                                    <Text style={[styles.carSpecs, { color: theme.colors.textMuted }]}>{car.year} • {car.hp} HP</Text>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Text style={[styles.carName, { color: theme.colors.text }]}>{car.name}</Text>
+                                        {car.power && <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{car.power}</Text>}
+                                    </View>
+
+                                    {car.nickname && <Text style={[styles.carSpecs, { color: theme.colors.textMuted, fontStyle: 'italic' }]}>"{car.nickname}"</Text>}
+
+                                    {car.specs && (
+                                        <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 4 }} numberOfLines={2}>
+                                            {car.specs}
+                                        </Text>
+                                    )}
                                 </View>
-                            </View>
+                            </TouchableOpacity>
                         ))
                     ) : (
                         <View style={[styles.emptyState, { backgroundColor: theme.colors.surfaceVariant }]}>
                             <Ionicons name="car-sport-outline" size={40} color={theme.colors.textMuted} />
-                            <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>No cars in garage yet.</Text>
+                            <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
+                                {isCurrentUser ? 'Tu garaje está vacío. ¡Añade tu máquina!' : 'Garaje vacío.'}
+                            </Text>
                         </View>
                     )}
                 </View>
