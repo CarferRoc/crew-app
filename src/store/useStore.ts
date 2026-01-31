@@ -60,7 +60,7 @@ interface AppState {
     rejectAllianceRequest: (allianceId: string) => Promise<boolean>;
     deleteAlliance: (allianceId: string) => Promise<boolean>;
     fetchCrewAlliances: (crewId: string) => Promise<any[]>;
-    leaveCrew: (crewId: string, userId: string) => Promise<boolean>;
+    leaveCrew: (crewId: string, userId: string, newLeaderId?: string) => Promise<boolean>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -683,34 +683,62 @@ export const useStore = create<AppState>((set, get) => ({
             const { currentUser } = get();
             if (!currentUser) return null;
 
-            const participantIds = [currentUser.id, otherUserId].sort();
+            // Sort IDs to ensure consistent order for participant columns
+            const ids = [currentUser.id, otherUserId].sort();
+            const p1 = ids[0];
+            const p2 = ids[1];
 
-            // Check if exists
+            // 1. Direct Lookup in conversations table (Primary Source of Truth)
             const { data: existing } = await supabase
                 .from('conversations')
                 .select('id')
-                .eq('participant1_id', participantIds[0])
-                .eq('participant2_id', participantIds[1])
-                .single();
+                .eq('participant1_id', p1)
+                .eq('participant2_id', p2)
+                .maybeSingle();
 
-            if (existing) return existing.id;
+            if (existing) {
+                return existing.id;
+            }
 
-            // Create new
-            const { data: newConv, error } = await supabase
+            // 2. Create new conversation if not found
+            const { data: newConv, error: createError } = await supabase
                 .from('conversations')
                 .insert({
-                    participant1_id: participantIds[0],
-                    participant2_id: participantIds[1],
-                    last_message: 'Nueva conversación'
+                    participant1_id: p1,
+                    participant2_id: p2,
+                    last_message: 'Nueva conversación',
+                    updated_at: new Date().toISOString()
                 })
                 .select('id')
                 .single();
 
-            if (error) {
-                console.error('Conversation Create Error:', error);
-                Alert.alert('Chat Error', JSON.stringify(error));
-                throw error;
+            if (createError) {
+                // Handle Race Condition / Duplicate (PGRST204 or 23505)
+                if (createError.code === '23505') {
+                    // It was created by someone else in the meantime, fetch it
+                    const { data: retry } = await supabase
+                        .from('conversations')
+                        .select('id')
+                        .eq('participant1_id', p1)
+                        .eq('participant2_id', p2)
+                        .maybeSingle();
+                    return retry?.id || null;
+                }
+                throw createError;
             }
+
+            // 3. Add participants to junction table (Best effort for compatibility)
+            const { error: partError } = await supabase
+                .from('conversation_participants')
+                .insert([
+                    { conversation_id: newConv.id, user_id: currentUser.id },
+                    { conversation_id: newConv.id, user_id: otherUserId }
+                ]);
+
+            if (partError) {
+                console.warn('Could not add to conversation_participants:', partError);
+            }
+
             return newConv.id;
         } catch (error) {
             console.error('Error getting conversation:', error);
@@ -812,7 +840,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
-    leaveCrew: async (crewId: string, userId: string) => {
+    leaveCrew: async (crewId: string, userId: string, newLeaderId?: string) => {
         try {
             // Check if user is leader
             const { data: memberData, error: memberError } = await supabase
@@ -824,40 +852,33 @@ export const useStore = create<AppState>((set, get) => ({
 
             if (memberError) throw memberError;
 
-            if (memberData.role === 'crew_lider') {
-                // Find oldest member (who is not the leaver)
-                const { data: oldestMember, error: oldestError } = await supabase
-                    .from('crew_members')
-                    .select('profile_id')
-                    .eq('crew_id', crewId)
-                    .neq('profile_id', userId)
-                    .order('created_at', { ascending: true }) // Assuming created_at tracks join time
-                    .limit(1)
-                    .single();
-
-                if (!oldestError && oldestMember) {
-                    // Transfer leadership
-                    const { error: updateError } = await supabase
-                        .from('crew_members')
-                        .update({ role: 'crew_lider' })
-                        .eq('crew_id', crewId)
-                        .eq('profile_id', oldestMember.profile_id);
-
-                    if (updateError) throw updateError;
-
-                    // Update crew owner (for fetchMyManagedCrews consistency)
-                    await supabase
-                        .from('crews')
-                        .update({ created_by: oldestMember.profile_id })
-                        .eq('id', crewId);
-                }
-            }
-
-            // QUANTITY CHECK BEFORE DELETING
+            // QUANTITY CHECK
             const { count } = await supabase
                 .from('crew_members')
                 .select('*', { count: 'exact', head: true })
                 .eq('crew_id', crewId);
+
+            if (memberData.role === 'crew_lider' && count && count > 1) {
+                if (!newLeaderId) {
+                    console.error("Leader must appoint a successor");
+                    return false;
+                }
+
+                // Transfer leadership
+                const { error: updateError } = await supabase
+                    .from('crew_members')
+                    .update({ role: 'crew_lider' })
+                    .eq('crew_id', crewId)
+                    .eq('profile_id', newLeaderId);
+
+                if (updateError) throw updateError;
+
+                // Update crew owner (for fetchMyManagedCrews consistency)
+                await supabase
+                    .from('crews')
+                    .update({ created_by: newLeaderId })
+                    .eq('id', crewId);
+            }
 
             if (count === 1) {
                 // If I'm the last one, delete the crew completely (CASCADE will handle members)
