@@ -11,7 +11,8 @@ interface CrewCardProps {
 
 export const CrewCard: React.FC<CrewCardProps> = ({ crew, onPress }) => {
     const theme = useAppTheme();
-    const isImageUrl = crew.badge.startsWith('http');
+    const badge = crew.badge || '';
+    const isImageUrl = badge.startsWith('http');
     const memberCount = crew.members ? crew.members.length : 0;
 
     return (
@@ -22,10 +23,10 @@ export const CrewCard: React.FC<CrewCardProps> = ({ crew, onPress }) => {
         >
             <View style={styles.imageContainer}>
                 {isImageUrl ? (
-                    <Image source={{ uri: crew.badge }} style={styles.badgeImage} resizeMode="cover" />
+                    <Image source={{ uri: badge }} style={styles.badgeImage} resizeMode="cover" />
                 ) : (
                     <View style={[styles.placeholderBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
-                        <Text style={{ fontSize: 32 }}>{crew.badge.charAt(0)}</Text>
+                        <Text style={{ fontSize: 32 }}>{badge.charAt(0)}</Text>
                     </View>
                 )}
                 <View style={[styles.rankBadge, { backgroundColor: theme.colors.overlay }]}>

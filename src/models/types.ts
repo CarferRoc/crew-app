@@ -32,6 +32,8 @@ export type DirectMessage = {
   senderId: string;
   text: string;
   createdAt: string;
+  type?: 'text' | 'image' | 'file';
+  media_url?: string;
 };
 
 export type Car = {
@@ -75,6 +77,20 @@ export type CrewEvent = {
   longitude?: number;
   image_url?: string;
   requester_id?: string;
+  jointCrewIds?: string[];
+};
+
+export type CrewAlliance = {
+  id: string;
+  requesterCrewId: string;
+  targetCrewId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: string;
+  partnerCrew?: { // For UI
+    id: string;
+    name: string;
+    image_url?: string;
+  };
 };
 
 export type ChatMessage = {
@@ -83,6 +99,9 @@ export type ChatMessage = {
   profileId: string;
   content: string;
   createdAt: string;
+  type?: 'text' | 'image' | 'file';
+  media_url?: string;
+  user?: any; // For UI rendering optimistically
 };
 
 export type Battle = {

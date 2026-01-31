@@ -22,6 +22,7 @@ import { AdminPanelScreen } from '../screens/AdminPanelScreen';
 import { DirectMessagesScreen } from '../screens/DirectMessagesScreen';
 import { ChatViewScreen } from '../screens/ChatViewScreen';
 import { CreateEventScreen } from '../screens/CreateEventScreen';
+import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { useStore } from '../store/useStore';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +39,7 @@ const CrewsStack = () => (
         <Stack.Screen name="InviteMember" component={InviteMemberScreen} />
         <Stack.Screen name="MyInvites" component={MyInvitesScreen} />
         <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
+        <Stack.Screen name="EventDetail" component={EventDetailScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="ChatViewScreen" component={ChatViewScreen} />
     </Stack.Navigator>

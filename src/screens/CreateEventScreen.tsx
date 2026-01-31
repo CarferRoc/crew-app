@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, Alert, TouchableOpacity, Image, Platform, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 // @ts-ignore
 import MapView, { Marker } from 'react-native-maps';
 // @ts-ignore
@@ -109,6 +110,25 @@ export const CreateEventScreen = ({ navigation, route }: any) => {
         }
     };
 
+    const [selectedAllies, setSelectedAllies] = useState<string[]>([]);
+    const [alliances, setAlliances] = useState<any[]>([]);
+
+    React.useEffect(() => {
+        const fetchAllies = async () => {
+            const data = await useStore.getState().fetchCrewAlliances(crewId);
+            setAlliances(data.filter(a => a.status === 'accepted'));
+        };
+        fetchAllies();
+    }, [crewId]);
+
+    const toggleAlly = (allyCrewId: string) => {
+        if (selectedAllies.includes(allyCrewId)) {
+            setSelectedAllies(selectedAllies.filter(id => id !== allyCrewId));
+        } else {
+            setSelectedAllies([...selectedAllies, allyCrewId]);
+        }
+    };
+
     const handleCreate = async () => {
         if (!title.trim() || !locationName.trim()) {
             Alert.alert('Incompleto', 'Por favor rellena título y nombre del lugar.');
@@ -128,7 +148,8 @@ export const CreateEventScreen = ({ navigation, route }: any) => {
             description,
             latitude: marker.latitude,
             longitude: marker.longitude,
-            image_url: image || undefined // In real app, upload this image first
+            image_url: image || undefined,
+            jointCrewIds: selectedAllies
         });
         setLoading(false);
 
@@ -250,6 +271,39 @@ export const CreateEventScreen = ({ navigation, route }: any) => {
                     onChangeText={setDescription}
                     multiline
                 />
+
+                {alliances.length > 0 && (
+                    <View style={{ marginTop: 20 }}>
+                        <Text style={[styles.label, { color: activeTheme.colors.text, marginTop: 0 }]}>Invitar Crews Aliadas</Text>
+                        <Text style={{ color: activeTheme.colors.textMuted, marginBottom: 10 }}>Selecciona crews para hacer una quedada conjunta.</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            {alliances.map((alliance, index) => {
+                                const partner = alliance.requester_crew_id === crewId ? alliance.target : alliance.requester;
+                                const isSelected = selectedAllies.includes(partner.id);
+                                return (
+                                    <TouchableOpacity
+                                        key={index}
+                                        onPress={() => toggleAlly(partner.id)}
+                                        style={{
+                                            marginRight: 10,
+                                            padding: 10,
+                                            borderRadius: 8,
+                                            backgroundColor: isSelected ? activeTheme.colors.primaryContainer : activeTheme.colors.surface,
+                                            borderWidth: 1,
+                                            borderColor: isSelected ? activeTheme.colors.primary : activeTheme.colors.border,
+                                            alignItems: 'center',
+                                            width: 100
+                                        }}
+                                    >
+                                        <Image source={{ uri: partner.image_url || 'https://via.placeholder.com/40' }} style={{ width: 40, height: 40, borderRadius: 20, marginBottom: 5 }} />
+                                        <Text numberOfLines={1} style={{ color: activeTheme.colors.text, fontSize: 12, fontWeight: isSelected ? 'bold' : 'normal' }}>{partner.name}</Text>
+                                        {isSelected && <Ionicons name="checkmark-circle" size={16} color={activeTheme.colors.primary} style={{ position: 'absolute', top: 5, right: 5 }} />}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                )}
 
                 <Button
                     title="Crear Quedada"
