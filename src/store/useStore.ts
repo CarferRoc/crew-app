@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { User, Crew, CrewEvent, Battle, RewardVoucher, ChatMessage, Conversation, DirectMessage } from '../models/types';
+import { User, Crew, CrewEvent, Battle, RewardVoucher, ChatMessage, Conversation, DirectMessage, GarageCar } from '../models/types';
 import { supabase } from '../lib/supabase';
 import { Alert } from 'react-native';
 
@@ -13,6 +13,7 @@ interface AppState {
     messages: Record<string, ChatMessage[]>; // crewId -> messages
     conversations: Conversation[];
     directMessages: Record<string, DirectMessage[]>; // conversationId -> messages
+    garage: GarageCar[];
     isDarkMode: boolean;
 
     // Actions
@@ -25,7 +26,8 @@ interface AppState {
     joinCrewByInvite: (code: string) => Promise<boolean>;
     fetchCrews: () => Promise<void>;
     createEvent: (crewId: string, eventData: Partial<CrewEvent>) => void;
-    joinEvent: (eventId: string, userId: string) => void;
+    joinEvent: (eventId: string, userId: string) => Promise<boolean>;
+    leaveEvent: (eventId: string, userId: string) => Promise<boolean>;
     chooseBattleWinner: (battleId: string, winnerCrewId: string) => void;
     redeemVoucher: (voucherId: string, userId: string) => boolean;
     setConversations: (conversations: Conversation[]) => void;
@@ -51,6 +53,19 @@ interface AppState {
     rejectEvent: (eventId: string) => Promise<boolean>;
     deleteEvent: (eventId: string) => Promise<boolean>;
     getOrCreateConversation: (otherUserId: string) => Promise<string | null>;
+
+    // Alliances
+    fetchMyManagedCrews: () => Crew[];
+    sendAllianceRequest: (requesterId: string, targetId: string) => Promise<'success' | 'duplicate' | 'error'>;
+    approveAllianceRequest: (allianceId: string) => Promise<boolean>;
+    rejectAllianceRequest: (allianceId: string) => Promise<boolean>;
+    deleteAlliance: (allianceId: string) => Promise<boolean>;
+    fetchCrewAlliances: (crewId: string) => Promise<any[]>;
+    leaveCrew: (crewId: string, userId: string, newLeaderId?: string) => Promise<boolean>;
+
+    // Garage
+    fetchGarage: (userId: string) => Promise<void>;
+    addCarToGarage: (car: Omit<GarageCar, 'id' | 'createdAt'>) => Promise<boolean>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -63,6 +78,7 @@ export const useStore = create<AppState>((set, get) => ({
     messages: {},
     conversations: [],
     directMessages: {},
+    garage: [],
     isDarkMode: true,
 
     setUsers: (users: User[]) => set({ users }),
@@ -159,7 +175,8 @@ export const useStore = create<AppState>((set, get) => ({
                 .select(`
                     *,
                     members_data:crew_members(profile_id)
-                `);
+                `)
+                .order('created_at', { ascending: false });
 
             if (error) throw error;
 
@@ -167,12 +184,13 @@ export const useStore = create<AppState>((set, get) => ({
                 id: c.id,
                 name: c.name,
                 badge: c.image_url || '',
-                privacy: 'public', // Default for now
+                privacy: 'public',
                 members: c.members_data?.map((m: any) => m.profile_id) || [],
-                scoreCrew: 0,
+                scoreCrew: c.score_crew || 0,
                 createdBy: c.created_by,
                 invites: [],
-                inviteCode: c.invite_code
+                inviteCode: c.invite_code,
+                isVerified: false
             }));
 
             set({ crews: mappedCrews });
@@ -207,32 +225,82 @@ export const useStore = create<AppState>((set, get) => ({
         }));
     },
 
-    joinEvent: (eventId: string, userId: string) => {
-        set(state => {
-            if (!state.currentUser) return state;
+    joinEvent: async (eventId: string, userId: string) => {
+        try {
+            // Fetch current event to get attendees
+            const { data: event, error: fetchError } = await supabase
+                .from('events')
+                .select('attendees')
+                .eq('id', eventId)
+                .single();
 
-            const updatedEvents = state.events.map(e =>
-                e.id === eventId && !e.attendees.includes(userId)
-                    ? { ...e, attendees: [...e.attendees, userId] }
-                    : e
-            );
+            if (fetchError) throw fetchError;
 
-            const updatedUsers = state.users.map(u =>
-                u.id === userId
-                    ? { ...u, pointsPersonal: u.pointsPersonal + 1 }
-                    : u
-            );
+            const currentAttendees = event.attendees || [];
+            if (currentAttendees.includes(userId)) return true; // Already joined
 
-            const updatedCurrentUser = state.currentUser.id === userId
-                ? { ...state.currentUser, pointsPersonal: state.currentUser.pointsPersonal + 1 }
-                : state.currentUser;
+            const updatedAttendees = [...currentAttendees, userId];
 
-            return {
-                events: updatedEvents,
-                users: updatedUsers,
-                currentUser: updatedCurrentUser
-            };
-        });
+            const { error: updateError } = await supabase
+                .from('events')
+                .update({ attendees: updatedAttendees })
+                .eq('id', eventId);
+
+            if (updateError) throw updateError;
+
+            // Update local state (optimistic)
+            set(state => ({
+                events: state.events.map(e =>
+                    e.id === eventId
+                        ? { ...e, attendees: updatedAttendees }
+                        : e
+                )
+            }));
+
+            return true;
+        } catch (error) {
+            console.error('Error joining event:', error);
+            return false;
+        }
+    },
+
+    leaveEvent: async (eventId: string, userId: string) => {
+        try {
+            // Fetch current event to get attendees
+            const { data: event, error: fetchError } = await supabase
+                .from('events')
+                .select('attendees')
+                .eq('id', eventId)
+                .single();
+
+            if (fetchError) throw fetchError;
+
+            const currentAttendees = event.attendees || [];
+            if (!currentAttendees.includes(userId)) return true; // Already not attending
+
+            const updatedAttendees = currentAttendees.filter((id: string) => id !== userId);
+
+            const { error: updateError } = await supabase
+                .from('events')
+                .update({ attendees: updatedAttendees })
+                .eq('id', eventId);
+
+            if (updateError) throw updateError;
+
+            // Update local state (optimistic)
+            set(state => ({
+                events: state.events.map(e =>
+                    e.id === eventId
+                        ? { ...e, attendees: updatedAttendees }
+                        : e
+                )
+            }));
+
+            return true;
+        } catch (error) {
+            console.error('Error leaving event:', error);
+            return false;
+        }
     },
 
     chooseBattleWinner: (battleId: string, winnerCrewId: string) => {
@@ -614,43 +682,290 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
+
+
     getOrCreateConversation: async (otherUserId: string) => {
         try {
             const { currentUser } = get();
             if (!currentUser) return null;
 
-            const participantIds = [currentUser.id, otherUserId].sort();
+            // Sort IDs to ensure consistent order for participant columns
+            const ids = [currentUser.id, otherUserId].sort();
+            const p1 = ids[0];
+            const p2 = ids[1];
 
-            // Check if exists
+            // 1. Direct Lookup in conversations table (Primary Source of Truth)
             const { data: existing } = await supabase
                 .from('conversations')
                 .select('id')
-                .eq('participant1_id', participantIds[0])
-                .eq('participant2_id', participantIds[1])
-                .single();
+                .eq('participant1_id', p1)
+                .eq('participant2_id', p2)
+                .maybeSingle();
 
-            if (existing) return existing.id;
+            if (existing) {
+                return existing.id;
+            }
 
-            // Create new
-            const { data: newConv, error } = await supabase
+            // 2. Create new conversation if not found
+            const { data: newConv, error: createError } = await supabase
                 .from('conversations')
                 .insert({
-                    participant1_id: participantIds[0],
-                    participant2_id: participantIds[1],
-                    last_message: 'Nueva conversación'
+                    participant1_id: p1,
+                    participant2_id: p2,
+                    last_message: 'Nueva conversación',
+                    updated_at: new Date().toISOString()
                 })
                 .select('id')
                 .single();
 
-            if (error) {
-                console.error('Conversation Create Error:', error);
-                Alert.alert('Chat Error', JSON.stringify(error));
-                throw error;
+            if (createError) {
+                // Handle Race Condition / Duplicate (PGRST204 or 23505)
+                if (createError.code === '23505') {
+                    // It was created by someone else in the meantime, fetch it
+                    const { data: retry } = await supabase
+                        .from('conversations')
+                        .select('id')
+                        .eq('participant1_id', p1)
+                        .eq('participant2_id', p2)
+                        .maybeSingle();
+                    return retry?.id || null;
+                }
+                throw createError;
             }
+
+            // 3. Add participants to junction table (Best effort for compatibility)
+            const { error: partError } = await supabase
+                .from('conversation_participants')
+                .insert([
+                    { conversation_id: newConv.id, user_id: currentUser.id },
+                    { conversation_id: newConv.id, user_id: otherUserId }
+                ]);
+
+            if (partError) {
+                console.warn('Could not add to conversation_participants:', partError);
+            }
+
             return newConv.id;
         } catch (error) {
             console.error('Error getting conversation:', error);
             return null;
+        }
+    },
+
+    fetchMyManagedCrews: () => {
+        const { crews, currentUser } = get();
+        if (!currentUser) return [];
+        // Ideally we should check role from `crew_members` table or store, 
+        // but for now we rely on `createdBy` or if we have roles in `crews` store (which we mapped poorly).
+        // Let's rely on checking `created_by` for simplicity or iterate members if available.
+        // Actually, in fetchCrews we mapped members. 
+        // Better: We need to know where I am leader. 
+        // Let's assume for now "created_by" denotes Ownership/Leadership for this feature, 
+        // OR we can fetch from DB. 
+        // Given we don't store roles in `crews` list state efficiently, let's filter by createdBy for MVP.
+        return crews.filter(c => c.createdBy === currentUser.id);
+    },
+
+    sendAllianceRequest: async (requesterId: string, targetId: string) => {
+        try {
+            const { error } = await supabase
+                .from('crew_alliances')
+                .insert({
+                    requester_crew_id: requesterId,
+                    target_crew_id: targetId,
+                    status: 'pending'
+                });
+            if (error) {
+                if (error.code === '23505') return 'duplicate'; // Unique violation
+                throw error;
+            }
+            return 'success';
+        } catch (error) {
+            console.error('Error sending alliance request:', error);
+            // Alert.alert('Error', JSON.stringify(error));
+            return 'error';
+        }
+    },
+
+    approveAllianceRequest: async (allianceId: string) => {
+        try {
+            const { error } = await supabase
+                .from('crew_alliances')
+                .update({ status: 'accepted' })
+                .eq('id', allianceId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    rejectAllianceRequest: async (allianceId: string) => {
+        try {
+            const { error } = await supabase
+                .from('crew_alliances')
+                .update({ status: 'rejected' }) // or delete
+                .eq('id', allianceId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    deleteAlliance: async (allianceId: string) => {
+        try {
+            const { error } = await supabase
+                .from('crew_alliances')
+                .delete()
+                .eq('id', allianceId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    fetchCrewAlliances: async (crewId: string) => {
+        try {
+            // We need alliances where I am requester OR target
+            const { data, error } = await supabase
+                .from('crew_alliances')
+                .select(`
+                    *,
+                    requester:crews!requester_crew_id(id, name, image_url),
+                    target:crews!target_crew_id(id, name, image_url)
+                `)
+                .or(`requester_crew_id.eq.${crewId},target_crew_id.eq.${crewId}`);
+
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching alliances:', error);
+            return [];
+        }
+    },
+
+    leaveCrew: async (crewId: string, userId: string, newLeaderId?: string) => {
+        try {
+            // Check if user is leader
+            const { data: memberData, error: memberError } = await supabase
+                .from('crew_members')
+                .select('role')
+                .eq('crew_id', crewId)
+                .eq('profile_id', userId)
+                .single();
+
+            if (memberError) throw memberError;
+
+            // QUANTITY CHECK
+            const { count } = await supabase
+                .from('crew_members')
+                .select('*', { count: 'exact', head: true })
+                .eq('crew_id', crewId);
+
+            if (memberData.role === 'crew_lider' && count && count > 1) {
+                if (!newLeaderId) {
+                    console.error("Leader must appoint a successor");
+                    return false;
+                }
+
+                // Transfer leadership
+                const { error: updateError } = await supabase
+                    .from('crew_members')
+                    .update({ role: 'crew_lider' })
+                    .eq('crew_id', crewId)
+                    .eq('profile_id', newLeaderId);
+
+                if (updateError) throw updateError;
+
+                // Update crew owner (for fetchMyManagedCrews consistency)
+                await supabase
+                    .from('crews')
+                    .update({ created_by: newLeaderId })
+                    .eq('id', crewId);
+            }
+
+            if (count === 1) {
+                // If I'm the last one, delete the crew completely (CASCADE will handle members)
+                const { error: deleteCrewError } = await supabase
+                    .from('crews')
+                    .delete()
+                    .eq('id', crewId);
+
+                if (deleteCrewError) throw deleteCrewError;
+            } else {
+                // If there are more people, delete only my membership
+                const { error } = await supabase
+                    .from('crew_members')
+                    .delete()
+                    .eq('crew_id', crewId)
+                    .eq('profile_id', userId);
+
+                if (error) throw error;
+            }
+
+            // Refresh crews to update UI
+            await get().fetchCrews();
+            return true;
+        } catch (error) {
+            console.error('Error leaving crew:', error);
+            return false;
+        }
+    },
+
+    fetchGarage: async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('garaje')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const mapped: GarageCar[] = (data || []).map(item => ({
+                id: item.id,
+                userId: item.user_id,
+                name: item.name,
+                nickname: item.nickname,
+                power: item.power,
+                specs: item.specs,
+                photos: item.photos || [],
+                createdAt: item.created_at
+            }));
+
+            set({ garage: mapped });
+        } catch (error) {
+            console.error('Error fetching garage:', error);
+            set({ garage: [] });
+        }
+    },
+
+    addCarToGarage: async (car) => {
+        try {
+            const { currentUser } = get();
+            if (!currentUser) return false;
+
+            const { error } = await supabase
+                .from('garaje')
+                .insert({
+                    user_id: currentUser.id,
+                    name: car.name,
+                    nickname: car.nickname,
+                    power: car.power,
+                    specs: car.specs,
+                    photos: car.photos
+                });
+
+            if (error) throw error;
+
+            // Refresh if it's my garage
+            await get().fetchGarage(currentUser.id);
+            return true;
+        } catch (error) {
+            console.error('Error adding car to garage:', error);
+            return false;
         }
     }
 }));

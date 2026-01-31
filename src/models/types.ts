@@ -33,6 +33,8 @@ export type DirectMessage = {
   senderId: string;
   text: string;
   createdAt: string;
+  type?: 'text' | 'image' | 'file';
+  media_url?: string;
 };
 
 // GAMEPLAY TYPES
@@ -132,6 +134,20 @@ export type CrewEvent = {
   longitude?: number;
   image_url?: string;
   requester_id?: string;
+  jointCrewIds?: string[];
+};
+
+export type CrewAlliance = {
+  id: string;
+  requesterCrewId: string;
+  targetCrewId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: string;
+  partnerCrew?: { // For UI
+    id: string;
+    name: string;
+    image_url?: string;
+  };
 };
 
 export type ChatMessage = {
@@ -140,6 +156,9 @@ export type ChatMessage = {
   profileId: string;
   content: string;
   createdAt: string;
+  type?: 'text' | 'image' | 'file';
+  media_url?: string;
+  user?: any; // For UI rendering optimistically
 };
 
 export type Battle = {
@@ -168,4 +187,15 @@ export type RewardVoucher = {
   code: string;
   expiresAt: string;
   isRedeemed?: boolean;
+};
+
+export type GarageCar = {
+  id: string;
+  userId: string;
+  name: string;
+  nickname: string;
+  power: string; // Text or number, effectively text for simplicity if user types "300 HP"
+  specs: string; // Long text
+  photos: string[];
+  createdAt: string;
 };
