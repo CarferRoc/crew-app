@@ -305,12 +305,43 @@ export const CreateEventScreen = ({ navigation, route }: any) => {
                     </View>
                 )}
 
+                <TouchableOpacity
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        marginTop: 20,
+                        marginBottom: 10,
+                        padding: 12,
+                        backgroundColor: activeTheme.colors.surface,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: activeTheme.colors.border
+                    }}
+                    onPress={() => {
+                        if (selectedAllies.includes('00000000-0000-0000-0000-000000000001')) {
+                            setSelectedAllies(selectedAllies.filter(id => id !== '00000000-0000-0000-0000-000000000001'));
+                        } else {
+                            setSelectedAllies([...selectedAllies, '00000000-0000-0000-0000-000000000001']);
+                        }
+                    }}
+                >
+                    <Ionicons
+                        name={selectedAllies.includes('00000000-0000-0000-0000-000000000001') ? "checkbox" : "square-outline"}
+                        size={24}
+                        color={activeTheme.colors.primary}
+                    />
+                    <View style={{ marginLeft: 12 }}>
+                        <Text style={{ color: activeTheme.colors.text, fontWeight: 'bold' }}>Compartir con Líderes</Text>
+                        <Text style={{ color: activeTheme.colors.textMuted, fontSize: 12 }}>Visible para todos los líderes en la crew oficial</Text>
+                    </View>
+                </TouchableOpacity>
+
                 <Button
                     title="Crear Quedada"
                     onPress={handleCreate}
                     loading={loading}
                     variant="primary"
-                    style={{ marginTop: 24, marginBottom: 40 }}
+                    style={{ marginTop: 10, marginBottom: 40 }}
                 />
             </ScrollView>
         </View>

@@ -17,10 +17,29 @@ export const EventDetailScreen = ({ route, navigation }: any) => {
     const [loading, setLoading] = useState(true);
     const [attendeeProfiles, setAttendeeProfiles] = useState<any[]>([]);
     const [joining, setJoining] = useState(false);
+    const [participatingCrews, setParticipatingCrews] = useState<any[]>([]);
+    const [userManagedCrewId, setUserManagedCrewId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchEventDetails();
+        checkUserLeadership();
     }, [eventId]);
+
+    const checkUserLeadership = async () => {
+        if (!currentUser) return;
+
+        // Check if user is a leader in ANY crew
+        const { data, error } = await supabase
+            .from('crew_members')
+            .select('crew_id')
+            .eq('profile_id', currentUser.id)
+            .eq('role', 'crew_lider')
+            .single();
+
+        if (data && data.crew_id) {
+            setUserManagedCrewId(data.crew_id);
+        }
+    };
 
     const fetchEventDetails = async () => {
         try {
@@ -36,22 +55,35 @@ export const EventDetailScreen = ({ route, navigation }: any) => {
             const mappedEvent: CrewEvent = {
                 ...data,
                 dateTime: data.date_time, // Map snake_case to camelCase
-                attendees: data.attendees || []
+                attendees: data.attendees || [],
+                // @ts-ignore
+                participating_crew_ids: data.participating_crew_ids || []
             };
 
             setEvent(mappedEvent);
 
+            // Fetch User Profiles
+            let profilesFn = [];
             if (mappedEvent.attendees && mappedEvent.attendees.length > 0) {
-                const { data: profiles, error: profError } = await supabase
+                profilesFn = (await supabase
                     .from('profiles')
                     .select('id, username, avatar_url')
-                    .in('id', mappedEvent.attendees);
+                    .in('id', mappedEvent.attendees)).data || [];
+            }
+            setAttendeeProfiles(profilesFn);
 
-                if (!profError) {
-                    setAttendeeProfiles(profiles || []);
+            // Fetch Participating Crews
+            if (mappedEvent.participating_crew_ids && mappedEvent.participating_crew_ids.length > 0) {
+                const { data: crews, error: crewsError } = await supabase
+                    .from('crews')
+                    .select('id, name, image_url')
+                    .in('id', mappedEvent.participating_crew_ids);
+
+                if (!crewsError) {
+                    setParticipatingCrews(crews || []);
                 }
             } else {
-                setAttendeeProfiles([]);
+                setParticipatingCrews([]);
             }
 
         } catch (error) {
@@ -63,12 +95,15 @@ export const EventDetailScreen = ({ route, navigation }: any) => {
         }
     };
 
-    const handleJoin = async () => {
+    const handleJoin = async (asCrew = false) => {
         if (!currentUser || !event) return;
         setJoining(true);
-        const success = await joinEvent(event.id, currentUser.id);
+
+        const crewIdToJoin = asCrew && userManagedCrewId ? userManagedCrewId : undefined;
+
+        const success = await joinEvent(event.id, currentUser.id, crewIdToJoin);
         if (success) {
-            Alert.alert('Success', 'Has confirmado tu asistencia!');
+            Alert.alert('Success', asCrew ? `Has apuntado a tu crew!` : 'Has confirmado tu asistencia!');
             fetchEventDetails();
         } else {
             Alert.alert('Error', 'No se pudo unir al evento');
@@ -78,13 +113,14 @@ export const EventDetailScreen = ({ route, navigation }: any) => {
 
     const handleLeave = async () => {
         if (!currentUser || !event) return;
-        setJoining(true); // Reuse state variable
+        setJoining(true);
         Alert.alert('Desapuntarse', '¿Seguro que quieres borrarte de la quedada?', [
             { text: 'Cancelar', style: 'cancel', onPress: () => setJoining(false) },
             {
                 text: 'Sí, borrarme',
                 onPress: async () => {
-                    const success = await useStore.getState().leaveEvent(event.id, currentUser.id);
+                    const crewIdToLeave = isCrewAttending ? userManagedCrewId : undefined;
+                    const success = await useStore.getState().leaveEvent(event.id, currentUser.id, crewIdToLeave);
                     if (success) {
                         Alert.alert('Éxito', 'Te has desapuntado.');
                         fetchEventDetails();
@@ -98,6 +134,7 @@ export const EventDetailScreen = ({ route, navigation }: any) => {
     };
 
     const isAttending = event?.attendees?.includes(currentUser?.id || '');
+    const isCrewAttending = userManagedCrewId && event?.participating_crew_ids?.includes(userManagedCrewId);
 
     if (loading) {
         return (
@@ -149,10 +186,27 @@ export const EventDetailScreen = ({ route, navigation }: any) => {
 
                     <View style={styles.section}>
                         <View style={styles.attendeesHeader}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.textMuted }]}>ASISTENTES ({attendeeProfiles.length})</Text>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.textMuted }]}>ASISTENTES ({attendeeProfiles.length + participatingCrews.length})</Text>
                         </View>
 
                         <View style={styles.attendeesList}>
+                            {/* Render Participating Crews First */}
+                            {participatingCrews.map((crew) => (
+                                <View key={`crew-${crew.id}`} style={styles.attendeeItem}>
+                                    <Image
+                                        source={{ uri: crew.image_url || 'https://via.placeholder.com/40' }}
+                                        style={[styles.avatar, { borderWidth: 2, borderColor: theme.colors.primary }]}
+                                    />
+                                    <Text style={[styles.attendeeName, { color: theme.colors.text }]} numberOfLines={1}>
+                                        {crew.name}
+                                    </Text>
+                                    <View style={{ position: 'absolute', bottom: 15, right: 0, backgroundColor: theme.colors.primary, borderRadius: 8, padding: 2 }}>
+                                        <Ionicons name="people" size={10} color="#FFF" />
+                                    </View>
+                                </View>
+                            ))}
+
+                            {/* Render Individual Users */}
                             {attendeeProfiles.map((profile) => (
                                 <View key={profile.id} style={styles.attendeeItem}>
                                     <Image
@@ -164,7 +218,7 @@ export const EventDetailScreen = ({ route, navigation }: any) => {
                                     </Text>
                                 </View>
                             ))}
-                            {attendeeProfiles.length === 0 && (
+                            {(attendeeProfiles.length === 0 && participatingCrews.length === 0) && (
                                 <Text style={{ color: theme.colors.textMuted, fontStyle: 'italic' }}>Sé el primero en apuntarte.</Text>
                             )}
                         </View>
@@ -183,13 +237,33 @@ export const EventDetailScreen = ({ route, navigation }: any) => {
                         textStyle={{ color: theme.colors.error }}
                         icon={<Ionicons name="close-circle" size={20} color={theme.colors.error} />}
                     />
-                ) : (
+                ) : isCrewAttending ? (
                     <Button
-                        title="Apuntarme"
-                        onPress={handleJoin}
-                        loading={joining}
-                        icon={<Ionicons name="add-circle" size={20} color="#FFF" />}
+                        title="Crew Apuntada"
+                        onPress={handleLeave}
+                        variant="secondary"
+                        style={{ borderColor: theme.colors.success, borderWidth: 1 }}
+                        textStyle={{ color: theme.colors.success }}
+                        icon={<Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />}
                     />
+                ) : (
+                    <View>
+                        {userManagedCrewId ? (
+                            <Button
+                                title="Unir a mi Crew"
+                                onPress={() => handleJoin(true)}
+                                loading={joining}
+                                icon={<Ionicons name="people" size={20} color="#FFF" />}
+                            />
+                        ) : (
+                            <Button
+                                title="Apuntarme"
+                                onPress={() => handleJoin(false)}
+                                loading={joining}
+                                icon={<Ionicons name="add-circle" size={20} color="#FFF" />}
+                            />
+                        )}
+                    </View>
                 )}
             </View>
         </View>
