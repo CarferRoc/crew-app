@@ -113,11 +113,15 @@ export type Crew = {
   invites: string[]; // Invite codes
   inviteCode?: string; // Single invite code for joining
   isVerified?: boolean;
+<<<<<<< HEAD
+  location?: string;
+=======
   // Ranking System
   leagueId?: string;
   leagueName?: string;
   leagueLevel?: number;
   totalSeasonPoints?: number;
+>>>>>>> 1795f78cdb03137c2f2799e4f2fc13d8b753d08c
 };
 
 export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'pending';
