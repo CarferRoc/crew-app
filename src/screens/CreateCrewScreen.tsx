@@ -166,13 +166,7 @@ export const CreateCrewScreen = ({ navigation }: any) => {
                     onChangeText={setName}
                 />
 
-                <TextInput
-                    style={[styles.input, { backgroundColor: activeTheme.colors.surface, color: activeTheme.colors.text, borderColor: activeTheme.colors.border }]}
-                    placeholder="Ubicación (Ciudad, España)"
-                    placeholderTextColor={activeTheme.colors.textMuted}
-                    value={location}
-                    onChangeText={setLocation}
-                />
+
 
                 <TextInput
                     style={[styles.input, styles.textArea, { backgroundColor: activeTheme.colors.surface, color: activeTheme.colors.text, borderColor: activeTheme.colors.border }]}

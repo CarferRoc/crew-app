@@ -27,6 +27,7 @@ import { CarDetailScreen } from '../screens/CarDetailScreen'; // Added
 import { useStore } from '../store/useStore';
 
 import { Ionicons } from '@expo/vector-icons';
+import { LigaScreen } from '../screens/LigaScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -148,6 +149,18 @@ export const AppNavigator = () => {
                         component={RewardsScreen}
                         options={{ tabBarLabel: 'Premios' }}
                     />
+                    <Tab.Screen
+                        name="Liga"
+                        component={LigaScreen}
+                        options={{ tabBarLabel: 'Liga' }}
+                    />
+                    {/*
+                    <Tab.Screen
+                        name="MessagesTab"
+                        component={MessagesStack}
+                        options={{ tabBarLabel: 'Mensajes' }}
+                    />
+                    */}
                     <Tab.Screen
                         name="ProfileTab"
                         component={ProfileStack}

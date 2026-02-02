@@ -6,6 +6,7 @@ export type User = {
   location: string;
   role: 'user' | 'lider' | 'admin';
   pointsPersonal: number;
+  saldo: number; // Added for Budget/Market
   cars: Car[];
 };
 
@@ -36,16 +37,69 @@ export type DirectMessage = {
   media_url?: string;
 };
 
+// GAMEPLAY TYPES
+
+export interface CarStats {
+  ac: number; // Aceleración (0-100)
+  mn: number; // Manejo (0-100)
+  tr: number; // Tracción (0-100)
+  cn: number; // Consumo (0-100)
+  es: number; // Estética (0-100)
+  fi: number; // Fiabilidad (0-100)
+}
+
+export type PartType = 'tires' | 'turbo' | 'intercooler' | 'suspension' | 'transmission';
+export type PartQuality = 'low' | 'mid' | 'high';
+
+export interface CarPart {
+  id: string;
+  name: string;
+  type: PartType;
+  quality: PartQuality;
+  bonusStats: Partial<CarStats>;
+  price: number;
+}
+
 export type Car = {
   id: string;
-  brand: string;
-  model: string;
-  year: number;
-  hp: number;
+  // Real Columns (CSV / Supabase 'cars')
+  brand: string; // "Make"
+  model: string; // "Model"
+  year: number;  // "Year"
+  hp: number;    // "Engine HP"
+  cylinders?: number; // "Engine Cylinders"
+  transmission?: string; // "Transmission Type"
+  drivetrain?: string; // "Driven_Wheels"
+  style?: string; // "Vehicle Style"
+  size?: string; // "Vehicle Size"
+  category?: string; // "Market Category"
+  cityMpg?: number; // "city mpg"
+  highwayMpg?: number; // "highway MPG"
+  popularity?: number; // "Popularity"
+  msrp?: number; // "MSRP" - Base value
+
+  // Game Props
   nickname?: string;
   description?: string;
-  mods: string[];
+  mods: string[]; // Legacy (keep to avoid break)
+  parts: CarPart[]; // New Antigravity Parts
   photos: string[];
+
+  // Game Stats
+  stats: CarStats; // Dynamic Stats
+  baseStats?: CarStats; // Stock Stats
+  isStock: boolean;
+
+  puntuacion?: number; // Legacy rating
+  valorMercado?: number; // Calculated Value
+};
+
+export type League = {
+  id: string;
+  name: string;
+  code: string;
+  created_by: string;
+  created_at?: string;
 };
 
 export type Crew = {
@@ -59,7 +113,15 @@ export type Crew = {
   invites: string[]; // Invite codes
   inviteCode?: string; // Single invite code for joining
   isVerified?: boolean;
+<<<<<<< HEAD
   location?: string;
+=======
+  // Ranking System
+  leagueId?: string;
+  leagueName?: string;
+  leagueLevel?: number;
+  totalSeasonPoints?: number;
+>>>>>>> 1795f78cdb03137c2f2799e4f2fc13d8b753d08c
 };
 
 export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'pending';
@@ -73,6 +135,9 @@ export type CrewEvent = {
   description: string;
   capacity: number;
   attendees: string[]; // User IDs
+
+  // Antigravity Event Props
+  eventType: 'drift' | 'offroad' | 'consumption' | 'aesthetic' | 'acceleration';
   status: EventStatus;
   latitude?: number;
   longitude?: number;
@@ -114,6 +179,14 @@ export type Battle = {
   createdAt: string;
 };
 
+export interface MarketBid {
+  itemId: string;
+  itemType: 'car' | 'part';
+  amount: number;
+  bidAt: string;
+  itemData: any; // Store the item snapshot to handle stats/pricing at auction end
+}
+
 export type RewardVoucher = {
   id: string;
   brand: string;
@@ -123,6 +196,51 @@ export type RewardVoucher = {
   code: string;
   expiresAt: string;
   isRedeemed?: boolean;
+};
+
+// Ranking System Types
+
+export type League = {
+  id: string;
+  name: string;
+  level: number;
+  description: string;
+};
+
+export type ClanWarEvent = {
+  id: string;
+  name: string;
+  event_date: string;
+  status: 'pending' | 'active' | 'completed';
+  created_at: string;
+};
+
+export type EventParticipation = {
+  id: string;
+  event_id: string;
+  crew_id: string;
+  total_score: number;
+  rank: number;
+  bonus_points: number;
+  crew?: {
+    name: string;
+    badge: string;
+  };
+};
+
+export type CarEvaluation = {
+  id: string;
+  event_id: string;
+  crew_id: string;
+  member_id: string;
+  car_name: string;
+  car_image_url?: string;
+  score_aesthetics: number;
+  score_power: number;
+  score_sound: number;
+  score_x_factor: number;
+  admin_notes?: string;
+  total_score?: number; // Calculated field
 };
 
 export type GarageCar = {
