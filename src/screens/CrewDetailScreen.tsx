@@ -13,7 +13,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export const CrewDetailScreen = ({ route, navigation }: any) => {
     const { crewId } = route.params;
-    const { currentUser: globalUser } = useStore();
+    const { currentUser: globalUser, crews } = useStore();
     const theme = useAppTheme();
 
     const [crew, setCrew] = useState<any>(null);
@@ -102,7 +102,8 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
             if (profilesError) throw profilesError;
 
             // Merge data and map to UI model (nick <- username, avatar <- avatar_url)
-            const membersData = relations.map((m: any) => {
+            // Merge data and map to UI model (nick <- username, avatar <- avatar_url)
+            let membersData = relations.map((m: any) => {
                 const profile = profilesData?.find((p: any) => p.id === m.profile_id);
                 return {
                     ...m,
@@ -114,14 +115,52 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 };
             });
 
+            // Special handling for Leaders Crew: Show Member's Managed Crew instead of User Profile
+            if (crewId === '00000000-0000-0000-0000-000000000001') {
+                const leaderIds = membersData.map((m: any) => m.profile_id);
+
+                // Fetch crews owned by these leaders
+                const { data: leadersCrews, error: lcError } = await supabase
+                    .from('crews')
+                    .select('id, name, image_url, created_by')
+                    .in('created_by', leaderIds);
+
+                if (!lcError && leadersCrews) {
+                    membersData = membersData.map((m: any) => {
+                        const managedCrew = leadersCrews.find((c: any) => c.created_by === m.profile_id);
+                        if (managedCrew) {
+                            return {
+                                ...m,
+                                user: {
+                                    ...m.user,
+                                    username: managedCrew.name, // SHOW CREW NAME
+                                    avatar_url: managedCrew.image_url // SHOW CREW LOGO
+                                }
+                            };
+                        }
+                        return m;
+                    });
+                }
+            }
+
             setMembers(membersData);
 
             // Fetch Events
-            const { data: eventsData, error: eventsError } = await supabase
+            let eventsQuery = supabase
                 .from('events')
                 .select('*')
-                .eq('crew_id', crewId)
                 .order('date_time', { ascending: true });
+
+            if (crewId === '00000000-0000-0000-0000-000000000001') {
+                // For Leaders Crew: Fetch events owned by this crew OR shared with this crew
+                // PostgREST syntax for OR with array column is tricky. 
+                // We'll trust Supabase client 'or' syntax: crew_id.eq.ID,joint_crew_ids.cs.{ID}
+                eventsQuery = eventsQuery.or(`crew_id.eq.${crewId},joint_crew_ids.cs.{${crewId}}`);
+            } else {
+                eventsQuery = eventsQuery.eq('crew_id', crewId);
+            }
+
+            const { data: eventsData, error: eventsError } = await eventsQuery;
 
             if (eventsError) throw eventsError;
 
@@ -348,6 +387,9 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
 
     const userCrewRole = currentMember?.role;
 
+    // Check if user belongs to ANY crew in the system
+    const isMemberOfAnyCrew = globalUser ? crews.some(c => c.members.includes(globalUser.id)) : false;
+
     const handleLeaveCrew = async (newLeaderId?: string) => {
         if (!globalUser) return;
 
@@ -391,20 +433,20 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
     const renderTabs = () => (
         <View style={styles.tabContainer}>
             <TouchableOpacity
-                style={[styles.tab, activeTab === 'info' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
+                style={[styles.tabItem, activeTab === 'info' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
                 onPress={() => setActiveTab('info')}
             >
-                <Text style={[styles.tabText, { color: activeTab === 'info' ? theme.colors.primary : theme.colors.textMuted }]}>Info</Text>
+                <Text style={[styles.tabText, { color: activeTab === 'info' ? theme.colors.primary : theme.colors.textMuted }, activeTab === 'info' && { fontWeight: 'bold' }]}>INFO</Text>
             </TouchableOpacity>
             <TouchableOpacity
-                style={[styles.tab, activeTab === 'events' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
+                style={[styles.tabItem, activeTab === 'events' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
                 onPress={() => setActiveTab('events')}
             >
-                <Text style={[styles.tabText, { color: activeTab === 'events' ? theme.colors.primary : theme.colors.textMuted }]}>Events</Text>
+                <Text style={[styles.tabText, { color: activeTab === 'events' ? theme.colors.primary : theme.colors.textMuted }, activeTab === 'events' && { fontWeight: 'bold' }]}>EVENTS</Text>
             </TouchableOpacity>
             {currentMember && (
                 <TouchableOpacity
-                    style={[styles.tab, activeTab === 'chat' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
+                    style={[styles.tabItem, activeTab === 'chat' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
                     onPress={() => {
                         navigation.navigate('ChatViewScreen', {
                             conversationId: `crew_${crewId}`,
@@ -413,16 +455,22 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                         });
                     }}
                 >
-                    <Text style={[styles.tabText, { color: theme.colors.textMuted }]}>Chat</Text>
-                    <Ionicons name="chatbubble-ellipses-outline" size={16} color={theme.colors.textMuted} style={{ marginLeft: 4 }} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={[styles.tabText, { color: theme.colors.textMuted }]}>CHAT</Text>
+                        <Ionicons name="chatbubble-ellipses-outline" size={16} color={theme.colors.textMuted} style={{ marginLeft: 4 }} />
+                    </View>
                 </TouchableOpacity>
             )}
-            <TouchableOpacity
-                style={[styles.tab, activeTab === 'alliances' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
-                onPress={() => setActiveTab('alliances')}
-            >
-                <Text style={[styles.tabText, { color: activeTab === 'alliances' ? theme.colors.primary : theme.colors.textMuted }]}>Alliances</Text>
-            </TouchableOpacity>
+
+            {/* Hide Alliances tab for Leaders Crew */}
+            {crewId !== '00000000-0000-0000-0000-000000000001' && (
+                <TouchableOpacity
+                    style={[styles.tabItem, activeTab === 'alliances' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
+                    onPress={() => setActiveTab('alliances')}
+                >
+                    <Text style={[styles.tabText, { color: activeTab === 'alliances' ? theme.colors.primary : theme.colors.textMuted }, activeTab === 'alliances' && { fontWeight: 'bold' }]}>ALLIANCES</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 
@@ -602,20 +650,21 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 ))}
             </View>
 
-            {!currentMember && !requestSent && globalUser && (
-                <View style={styles.joinSection}>
-                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>JOIN CREW</Text>
-                    <TextInput
-                        style={[styles.input, { backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border }]}
-                        placeholder="Why do you want to join?"
-                        placeholderTextColor={theme.colors.textMuted}
-                        value={joinMessage}
-                        onChangeText={setJoinMessage}
-                        multiline
-                    />
-                    <Button title="Send Request" onPress={handleJoinRequest} style={{ marginTop: 10 }} />
-                </View>
-            )}
+            {/* Only show Join Section if user is NOT in any crew */
+                !currentMember && !requestSent && globalUser && !isMemberOfAnyCrew && (
+                    <View style={styles.joinSection}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>JOIN CREW</Text>
+                        <TextInput
+                            style={[styles.input, { backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border }]}
+                            placeholder="Why do you want to join?"
+                            placeholderTextColor={theme.colors.textMuted}
+                            value={joinMessage}
+                            onChangeText={setJoinMessage}
+                            multiline
+                        />
+                        <Button title="Send Request" onPress={handleJoinRequest} style={{ marginTop: 10 }} />
+                    </View>
+                )}
 
             {!currentMember && requestSent && (
                 <View style={[styles.joinSection, { alignItems: 'center', padding: 20 }]}>
@@ -624,7 +673,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 </View>
             )}
 
-            {currentMember && (
+            {currentMember && crewId !== '00000000-0000-0000-0000-000000000001' && (
                 <View style={styles.section}>
                     <Button
                         title="Abandonar Crew"
@@ -965,5 +1014,13 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 8,
         marginBottom: 8,
-    }
+    },
+    tabItem: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
+    },
 });

@@ -13,6 +13,12 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
     const params = route.params || {};
     const { conversationId, otherUser, crewId, title } = params;
     const { currentUser } = useStore();
+    const [activeChannel, setActiveChannel] = useState<'general' | 'city'>('general');
+    const [userCity, setUserCity] = useState<string>('Madrid'); // Default, should fetch from profile
+
+    // Check if this is the Leaders Crew
+    const isLeadersCrew = crewId === '00000000-0000-0000-0000-000000000001';
+
     const [messages, setMessages] = useState<any[]>([]);
     const [chatText, setChatText] = useState('');
     const [loading, setLoading] = useState(true);
@@ -25,6 +31,45 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
 
     const isCrewChat = !!crewId;
     const headerTitle = title || otherUser?.username || 'Chat';
+
+    useEffect(() => {
+        const loadUserCityContext = async () => {
+            if (!isLeadersCrew || !currentUser) return;
+
+            try {
+                // 1. Find the crew this user Leads
+                const { data: memberData } = await supabase
+                    .from('crew_members')
+                    .select('crew_id')
+                    .eq('profile_id', currentUser.id)
+                    .eq('role', 'crew_lider')
+                    .single();
+
+                if (memberData && memberData.crew_id) {
+                    // 2. Fetch that Crew's Location
+                    const { data: crewData } = await supabase
+                        .from('crews')
+                        .select('location')
+                        .eq('id', memberData.crew_id)
+                        .single();
+
+                    if (crewData && crewData.location) {
+                        setUserCity(crewData.location);
+                        return;
+                    }
+                }
+
+                // Fallback: User Profile Location or Default
+                if (currentUser.location) {
+                    setUserCity(currentUser.location);
+                }
+            } catch (err) {
+                console.error("Error fetching leader city context:", err);
+            }
+        };
+
+        loadUserCityContext();
+    }, [isLeadersCrew, currentUser]);
 
     useEffect(() => {
         let subscription: any;
@@ -60,17 +105,28 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
         return () => {
             if (subscription) subscription.unsubscribe();
         };
-    }, [conversationId, crewId]);
+    }, [conversationId, crewId, activeChannel]); // Re-run when channel changes
 
     const fetchMessages = async (targetId: string | null) => {
         try {
             let query;
             if (isCrewChat) {
-                query = supabase
-                    .from('crew_messages')
-                    .select('*, user:profiles(username, avatar_url)')
-                    .eq('crew_id', crewId)
-                    .order('created_at', { ascending: true });
+                if (isLeadersCrew) {
+                    // Filter by channel
+                    const channelFilter = activeChannel === 'general' ? 'general' : userCity;
+                    query = supabase
+                        .from('crew_messages')
+                        .select('*, user:profiles(username, avatar_url)')
+                        .eq('crew_id', crewId)
+                        .eq('channel', channelFilter)
+                        .order('created_at', { ascending: true });
+                } else {
+                    query = supabase
+                        .from('crew_messages')
+                        .select('*, user:profiles(username, avatar_url)')
+                        .eq('crew_id', crewId)
+                        .order('created_at', { ascending: true });
+                }
             } else if (targetId) {
                 query = supabase
                     .from('direct_messages')
@@ -98,12 +154,20 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
     const subscribeToMessages = (targetId: string | null) => {
         const channelName = isCrewChat ? `crew_chat:${crewId}` : `dm:${targetId}`;
         const tableName = isCrewChat ? 'crew_messages' : 'direct_messages';
-        const filter = isCrewChat ? `crew_id=eq.${crewId}` : `conversation_id=eq.${targetId}`;
+
+        let filter;
+        if (isCrewChat) {
+            // Supabase Realtime 'filter' prop only supports simple single-column filters efficiently.
+            // We subscribe to all messages for this crew and filter by channel in the callback.
+            filter = `crew_id=eq.${crewId}`;
+        } else {
+            filter = `conversation_id=eq.${targetId}`;
+        }
 
         if (!isCrewChat && !targetId) return null;
 
         const channel = supabase
-            .channel(channelName)
+            .channel(channelName + ':' + activeChannel) // Unique channel per tab
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
@@ -111,6 +175,12 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
                 filter: filter
             }, async (payload) => {
                 const newMessage = payload.new;
+
+                // Double check channel filter client side just in case
+                if (isLeadersCrew && newMessage.channel !== (activeChannel === 'general' ? 'general' : userCity)) {
+                    return;
+                }
+
                 if (isCrewChat) {
                     const { data: userData } = await supabase.from('profiles').select('username, avatar_url').eq('id', newMessage.profile_id).single();
                     newMessage.user = userData;
@@ -127,13 +197,19 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
 
         try {
             if (isCrewChat) {
-                const { error } = await supabase.from('crew_messages').insert({
+                const msgData: any = {
                     crew_id: crewId,
                     profile_id: currentUser?.id,
                     content: content || (type === 'image' ? 'Image' : 'File'),
                     type,
                     media_url: mediaUrl
-                });
+                };
+
+                if (isLeadersCrew) {
+                    msgData.channel = activeChannel === 'general' ? 'general' : userCity;
+                }
+
+                const { error } = await supabase.from('crew_messages').insert(msgData);
                 if (error) throw error;
             } else {
                 if (!activeConversationId) {
@@ -265,6 +341,23 @@ export const ChatViewScreen = ({ route, navigation }: any) => {
     return (
         <View style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
             <Header title={headerTitle} showBack onBack={() => navigation.goBack()} />
+
+            {isLeadersCrew && (
+                <View style={{ flexDirection: 'row', backgroundColor: activeTheme.colors.surface }}>
+                    <TouchableOpacity
+                        style={{ flex: 1, padding: 15, borderBottomWidth: 2, borderBottomColor: activeChannel === 'general' ? activeTheme.colors.primary : 'transparent' }}
+                        onPress={() => setActiveChannel('general')}
+                    >
+                        <Text style={{ textAlign: 'center', color: activeChannel === 'general' ? activeTheme.colors.primary : activeTheme.colors.textMuted, fontWeight: 'bold' }}>Global</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={{ flex: 1, padding: 15, borderBottomWidth: 2, borderBottomColor: activeChannel === 'city' ? activeTheme.colors.primary : 'transparent' }}
+                        onPress={() => setActiveChannel('city')}
+                    >
+                        <Text style={{ textAlign: 'center', color: activeChannel === 'city' ? activeTheme.colors.primary : activeTheme.colors.textMuted, fontWeight: 'bold' }}>{userCity}</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
