@@ -1,3 +1,5 @@
+import { useStore } from '../store/useStore';
+
 const commonTheme = {
     spacing: {
         xs: 4,
@@ -39,6 +41,7 @@ export const darkTheme = {
         surface: '#121212', // Dark Gray
         surfaceVariant: '#1E1E1E', // Lighter Gray for cards
         primary: '#FF3B30', // Neon Red
+        primaryContainer: 'rgba(255, 59, 48, 0.2)', // Semi-transparent red
         primaryDark: '#B32D38',
         secondary: '#2D7FF9', // Electric Blue
         accent: '#FFD700', // Gold
@@ -60,6 +63,7 @@ export const lightTheme = {
         surface: '#FFFFFF',
         surfaceVariant: '#F9F9F9',
         primary: '#FF3B30',
+        primaryContainer: 'rgba(255, 59, 48, 0.1)',
         primaryDark: '#D32F2F',
         secondary: '#007AFF',
         accent: '#FFD700',
@@ -76,7 +80,6 @@ export const lightTheme = {
 
 export const theme = darkTheme;
 
-import { useStore } from '../store/useStore';
 
 export const useAppTheme = () => {
     const isDarkMode = useStore((state) => state.isDarkMode);

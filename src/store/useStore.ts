@@ -27,8 +27,8 @@ interface AppState {
     joinCrewByInvite: (code: string) => Promise<boolean>;
     fetchCrews: () => Promise<void>;
     createEvent: (crewId: string, eventData: Partial<CrewEvent>) => void;
-    joinEvent: (eventId: string, userId: string) => Promise<boolean>;
-    leaveEvent: (eventId: string, userId: string) => Promise<boolean>;
+    joinEvent: (eventId: string, userId: string, asCrewId?: string) => Promise<boolean>;
+    leaveEvent: (eventId: string, userId: string, asCrewId?: string) => Promise<boolean>;
     chooseBattleWinner: (battleId: string, winnerCrewId: string) => void;
     redeemVoucher: (voucherId: string, userId: string) => boolean;
     setConversations: (conversations: Conversation[]) => void;
@@ -132,6 +132,22 @@ export const useStore = create<AppState>((set, get) => {
         joinCrewByInvite: async (code: string) => {
             const { currentUser } = get();
             if (!currentUser) return false;
+            // Check if already a member of ANY crew
+            const { data: existingMembership } = await supabase
+                .from('crew_members')
+                .select('*')
+                .eq('profile_id', currentUser.id)
+                .single();
+
+            if (existingMembership) {
+                // Already in a crew (could be this one or another)
+                if (existingMembership.crew_id === crewData.id) {
+                    return true; // Already in this crew, treat as success
+                } else {
+                    Alert.alert('Error', 'Ya perteneces a una crew. Debes salirte antes de unirte a otra.');
+                    return false;
+                }
+            }
 
             try {
                 // Find crew by invite code
@@ -185,7 +201,8 @@ export const useStore = create<AppState>((set, get) => {
                     .from('crews')
                     .select(`
                     *,
-                    members_data:crew_members(profile_id)
+                    members_data:crew_members(profile_id),
+                    league:leagues(id, name, level)
                 `)
                     .order('created_at', { ascending: false });
 
@@ -275,6 +292,126 @@ export const useStore = create<AppState>((set, get) => {
                 return false;
             }
         },
+                .order('total_season_points', { ascending: false }); // Sort by score by default
+
+            if (error) throw error;
+
+            const mappedCrews: Crew[] = (data || []).map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                badge: c.image_url || '',
+                privacy: 'public',
+                members: c.members_data?.map((m: any) => m.profile_id) || [],
+                scoreCrew: c.total_season_points || 0,
+                createdBy: c.created_by,
+                invites: [],
+                inviteCode: c.invite_code,
+                isVerified: false,
+                // Ranking Mapping
+                leagueId: c.league?.id,
+                leagueName: c.league?.name || 'Unranked',
+                leagueLevel: c.league?.level || 0,
+                totalSeasonPoints: c.total_season_points || 0
+            }));
+
+            set({ crews: mappedCrews });
+        } catch (error) {
+            console.error('Error fetching crews:', error);
+        }
+    },
+
+    createEvent: (crewId: string, eventData: Partial<CrewEvent>) => {
+        const { currentUser } = get();
+        if (!currentUser) return;
+
+        const newEvent: CrewEvent = {
+            id: Math.random().toString(36).substr(2, 9),
+            crewId,
+            title: eventData.title || 'Untitled Event',
+            dateTime: eventData.dateTime || new Date().toISOString(),
+            location: eventData.location || 'TBA',
+            description: eventData.description || '',
+            capacity: eventData.capacity || 10,
+            attendees: [currentUser.id],
+            status: 'upcoming',
+            eventType: 'drift' // Default value
+        };
+
+        set(state => ({
+            events: [...state.events, newEvent],
+            crews: state.crews.map(c =>
+                c.id === crewId
+                    ? { ...c, scoreCrew: c.scoreCrew + 10 }
+                    : c
+            )
+        }));
+    },
+
+    joinEvent: async (eventId: string, userId: string, asCrewId?: string) => {
+        try {
+            // Fetch current event to get attendees
+            const { data: event, error: fetchError } = await supabase
+                .from('events')
+                .select('attendees, participating_crew_ids')
+                .eq('id', eventId)
+                .single();
+
+            if (fetchError) throw fetchError;
+
+            if (asCrewId) {
+                // Join as CREW
+                const currentCrews = event.participating_crew_ids || [];
+                if (currentCrews.includes(asCrewId)) return true; // Already joined
+
+                const updatedCrews = [...currentCrews, asCrewId];
+                const { error: updateError } = await supabase
+                    .from('events')
+                    .update({ participating_crew_ids: updatedCrews })
+                    .eq('id', eventId);
+
+                if (updateError) throw updateError;
+            } else {
+                // Join as USER
+                const currentAttendees = event.attendees || [];
+                if (currentAttendees.includes(userId)) return true; // Already joined
+
+                const updatedAttendees = [...currentAttendees, userId];
+                const { error: updateError } = await supabase
+                    .from('events')
+                    .update({ attendees: updatedAttendees })
+                    .eq('id', eventId);
+
+                if (updateError) throw updateError;
+            }
+
+            // Update local state (optimistic or re-fetch would be better but simple mapping for now)
+            set(state => ({
+                events: state.events.map(e =>
+                    e.id === eventId
+                        ? {
+                            ...e,
+                            attendees: !asCrewId ? [...(e.attendees || []), userId] : e.attendees,
+                            // We don't have participating_crews in the Type yet, but DB has it.
+                            // Ideally update type.
+                        }
+                        : e
+                )
+            }));
+            return true;
+        } catch (error) {
+            console.error('Error joining event:', error);
+            return false;
+        }
+    },
+
+    leaveEvent: async (eventId: string, userId: string, asCrewId?: string) => {
+        try {
+            // Fetch current event to get attendees
+            const { data: event, error: fetchError } = await supabase
+                .from('events')
+                .select('attendees, participating_crew_ids')
+                .eq('id', eventId)
+                .single();
 
         leaveEvent: async (eventId: string, userId: string) => {
             try {
@@ -314,6 +451,32 @@ export const useStore = create<AppState>((set, get) => {
                 return false;
             }
         },
+            if (asCrewId) {
+                // Leave as CREW
+                const currentCrews = event.participating_crew_ids || [];
+                if (!currentCrews.includes(asCrewId)) return true; // Already not attending
+
+                const updatedCrews = currentCrews.filter((id: string) => id !== asCrewId);
+                const { error: updateError } = await supabase
+                    .from('events')
+                    .update({ participating_crew_ids: updatedCrews })
+                    .eq('id', eventId);
+
+                if (updateError) throw updateError;
+            } else {
+                // Leave as USER
+                const currentAttendees = event.attendees || [];
+                if (!currentAttendees.includes(userId)) return true; // Already not attending
+
+                const updatedAttendees = currentAttendees.filter((id: string) => id !== userId);
+
+                const { error: updateError } = await supabase
+                    .from('events')
+                    .update({ attendees: updatedAttendees })
+                    .eq('id', eventId);
+
+                if (updateError) throw updateError;
+            }
 
         chooseBattleWinner: (battleId: string, winnerCrewId: string) => {
             set(state => ({
@@ -326,6 +489,14 @@ export const useStore = create<AppState>((set, get) => {
                     c.id === winnerCrewId
                         ? { ...c, scoreCrew: c.scoreCrew + 50 }
                         : c
+                events: state.events.map(e =>
+                    e.id === eventId
+                        ? {
+                            ...e,
+                            attendees: !asCrewId ? (e.attendees || []).filter(id => id !== userId) : e.attendees,
+                            // participating_crew_ids update implied if we had it in type
+                        }
+                        : e
                 )
             }));
         },
@@ -397,6 +568,23 @@ export const useStore = create<AppState>((set, get) => {
                 const { error } = await supabase
                     .from('crew_invites')
                     .insert({ crew_id: crewId, user_id: userId });
+    sendInvite: async (crewId: string, userId: string) => {
+        try {
+            // Check if user is already in a crew
+            const { data: existingMembership } = await supabase
+                .from('crew_members')
+                .select('crew_id')
+                .eq('profile_id', userId)
+                .single();
+
+            if (existingMembership) {
+                // User is already in a crew
+                return false;
+            }
+
+            const { error } = await supabase
+                .from('crew_invites')
+                .insert({ crew_id: crewId, user_id: userId });
 
                 if (error) {
                     console.error('Error sending invite:', error);
@@ -441,6 +629,35 @@ export const useStore = create<AppState>((set, get) => {
             try {
                 const { currentUser } = get();
                 if (!currentUser) return false;
+            // Get invite details first to get crew_id
+            const { data: invite } = await supabase
+                .from('crew_invites')
+                .select('crew_id')
+                .eq('id', inviteId)
+                .single();
+
+            if (!invite) return false;
+
+            // Check if already in a crew
+            const { data: existingMembership } = await supabase
+                .from('crew_members')
+                .select('crew_id')
+                .eq('profile_id', currentUser.id)
+                .single();
+
+            if (existingMembership) {
+                Alert.alert('Error', 'Ya perteneces a una crew. Sal de tu crew actual para aceptar esta invitación.');
+                return false;
+            }
+
+            // Join crew
+            const { error: joinError } = await supabase
+                .from('crew_members')
+                .insert({
+                    crew_id: invite.crew_id,
+                    profile_id: currentUser.id,
+                    role: 'member'
+                });
 
                 // Get invite details first to get crew_id
                 const { data: invite } = await supabase
@@ -473,6 +690,26 @@ export const useStore = create<AppState>((set, get) => {
                 return false;
             }
         },
+            // Check if already in a crew
+            const { data: existingMembership } = await supabase
+                .from('crew_members')
+                .select('crew_id')
+                .eq('profile_id', currentUser.id)
+                .single();
+
+            if (existingMembership) {
+                Alert.alert('Error', 'Ya perteneces a una crew.');
+                return false;
+            }
+
+            const { error } = await supabase
+                .from('crew_join_requests')
+                .insert({
+                    crew_id: crewId,
+                    user_id: currentUser.id,
+                    message,
+                    status: 'pending'
+                });
 
         rejectInvite: async (inviteId: string) => {
             try {
@@ -520,6 +757,53 @@ export const useStore = create<AppState>((set, get) => {
                     .eq('crew_id', crewId)
                     .eq('status', 'pending')
                     .order('created_at', { ascending: false });
+                .eq('crew_id', crewId)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching requests:', error);
+            return [];
+        }
+    },
+
+    approveRequest: async (requestId: string) => {
+        try {
+            // Get request details
+            const { data: request } = await supabase
+                .from('crew_join_requests')
+                .select('*')
+                .eq('id', requestId)
+                .single();
+
+            if (!request) return false;
+
+            // Check if the user is ALREADY in a crew (maybe they joined another one while waiting)
+            const { data: existingMembership } = await supabase
+                .from('crew_members')
+                .select('crew_id')
+                .eq('profile_id', request.user_id)
+                .single();
+
+            if (existingMembership) {
+                // Reject request automatically if they are already in a crew
+                await supabase
+                    .from('crew_join_requests')
+                    .update({ status: 'rejected' })
+                    .eq('id', requestId);
+                return false;
+            }
+
+            // Add to members
+            const { error: joinError } = await supabase
+                .from('crew_members')
+                .insert({
+                    crew_id: request.crew_id,
+                    profile_id: request.user_id,
+                    role: 'member'
+                });
 
                 if (error) throw error;
                 return data || [];
@@ -577,6 +861,18 @@ export const useStore = create<AppState>((set, get) => {
                 return false;
             }
         },
+    createEventRequest: async (crewId: string, eventData: any) => {
+        try {
+            const { currentUser } = get();
+            if (!currentUser) return false;
+
+            // Determine status based on role (leader -> upcoming, member -> pending)
+            const { data: memberData } = await supabase
+                .from('crew_members')
+                .select('role')
+                .eq('crew_id', crewId)
+                .eq('profile_id', currentUser.id)
+                .single();
 
         fetchUserProfile: async (userId: string) => {
             try {
@@ -602,6 +898,32 @@ export const useStore = create<AppState>((set, get) => {
                 return null;
             }
         },
+            const { data, error } = await supabase
+                .from('events')
+                .insert({
+                    crew_id: crewId,
+                    title: eventData.title,
+                    description: eventData.description,
+                    date_time: eventData.dateTime,
+                    location: eventData.location,
+                    latitude: eventData.latitude,
+                    longitude: eventData.longitude,
+                    image_url: eventData.image_url,
+                    created_by: currentUser.id,
+                    status: status,
+                    joint_crew_ids: eventData.jointCrewIds || []
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error creating event:', error);
+            // Alert.alert('Catch Error', JSON.stringify(error)); 
+            return false;
+        }
+    },
 
         createEventRequest: async (crewId: string, eventData: { title: string, location: string, dateTime: string, description: string, latitude?: number, longitude?: number, image_url?: string }) => {
             try {
