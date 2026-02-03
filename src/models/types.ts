@@ -60,39 +60,79 @@ export interface CarPart {
   price: number;
 }
 
+
 export type Car = {
-  id: string;
-  // Real Columns (CSV / Supabase 'cars')
-  brand: string; // "Make"
-  model: string; // "Model"
-  year: number;  // "Year"
-  hp: number;    // "Engine HP"
-  cylinders?: number; // "Engine Cylinders"
-  transmission?: string; // "Transmission Type"
-  drivetrain?: string; // "Driven_Wheels"
-  style?: string; // "Vehicle Style"
-  size?: string; // "Vehicle Size"
-  category?: string; // "Market Category"
-  cityMpg?: number; // "city mpg"
-  highwayMpg?: number; // "highway MPG"
-  popularity?: number; // "Popularity"
-  msrp?: number; // "MSRP" - Base value
-
-  // Game Props
-  nickname?: string;
+  id: string; // UUID in Supabase
+  // cars_liga columns
+  brand: string;
+  model: string;
+  production_years: string; // e.g. "2008-2012"
+  from_year?: number;
+  to_year?: number; // Can be null (present)
+  body_style?: string;
+  segment?: string;
+  title?: string;
   description?: string;
-  mods: string[]; // Legacy (keep to avoid break)
-  parts: CarPart[]; // New Antigravity Parts
-  photos: string[];
 
-  // Game Stats
-  stats: CarStats; // Dynamic Stats
-  baseStats?: CarStats; // Stock Stats
-  isStock: boolean;
+  // Engine
+  engine_specs_title?: string;
+  cylinders?: string; // Text like "V8" or number
+  displacement?: string;
+  power?: string; // Raw text e.g. "420 HP @ 8300 RPM"
+  torque?: string;
+  fuel_system?: string;
+  fuel?: string;
+  fuel_capacity?: string;
 
-  puntuacion?: number; // Legacy rating
-  valorMercado?: number; // Calculated Value
+  // Performance
+  top_speed?: string; // Text "300 km/h"
+  acceleration?: string; // "4.6 s"
+  aerodynamics?: string;
+
+  // Drivetrain
+  drive_type?: string;
+  gearbox?: string;
+
+  // Chassis / Dimensions
+  front_brakes?: string;
+  rear_brakes?: string;
+  tire_size?: string;
+  length?: string;
+  width?: string;
+  height?: string;
+  front_rear_track?: string;
+  wheelbase?: string;
+  cargo_volume?: string;
+  unladen_weight?: string;
+  gross_weight_limit?: string;
+  ground_clearance?: string;
+
+  // Consumption
+  city?: string;
+  highway?: string;
+  combined?: string;
+  co2_emissions?: string;
+
+  // Media
+  brand_url?: string;
+  brand_logo_url?: string;
+  model_url?: string;
+  image_urls?: string[]; // Array of URLs
+  image_file_names?: string[];
+  total_images?: number;
+
+  // Game Props (Computed / Legacy support)
+  hp?: number; // Parsed numerical HP
+  year?: number; // Parsed Year
+  price?: number; // Calculated price
+  isUsed?: boolean; // Market status
+
+  // Legacy Game Stats
+  stats?: CarStats;
+  baseStats?: CarStats;
+  parts: CarPart[];
 };
+
 
 export type League = {
   id: string;

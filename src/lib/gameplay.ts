@@ -108,3 +108,62 @@ export const getPartName = (type: PartType): string => {
         default: return type;
     }
 };
+
+
+// Helper to calculate labor cost for installing modifications
+export const calculateLaborCost = (car: Car): number => {
+    if (!car.parts || car.parts.length === 0) return 0;
+
+    let totalCost = 0;
+    car.parts.forEach(part => {
+        // Labor cost varies by quality
+        switch (part.quality) {
+            case 'high':
+                totalCost += 8000; // Premium quality = high labor cost
+                break;
+            case 'mid':
+                totalCost += 4000; // Mid quality = medium labor
+                break;
+            case 'low':
+                totalCost += 2000; // Low quality = cheap labor
+                break;
+        }
+    });
+
+    return totalCost;
+};
+
+
+/**
+ * Generates an accurate image URL for a car based on its metadata.
+ * Uses a dynamic search query to prioritize brand/model accuracy.
+ */
+export const getCarImage = (car: any): string => {
+    // 1. Prioritize stored images (New format: image_urls)
+    if (car.image_urls && car.image_urls.length > 0) {
+        return car.image_urls[0];
+    }
+
+    // 2. Legacy / fallback formats
+    let url = car.image;
+    if (!url && car.photos && car.photos.length > 0) url = car.photos[0];
+
+    // 3. Fallback to AI-generated image (Pollinations AI) - High quality and accurate
+    if (!url) {
+        const brand = car.brand || car.Make || '';
+        const model = car.model || car.Model || '';
+        const year = car.year || car.Year || ''; // from_year or production_years could be used too
+
+        // We create a professional automotive photography prompt
+        const prompt = encodeURIComponent(`professional automotive photography of a ${year} ${brand} ${model} in a dark studio with cinematic lighting, side profile view, 4k highly detailed`);
+
+        // Each car ID acts as a seed to ensure the image is consistent for that specific car
+        const seed = car.id ? car.id.toString().split('-')[0] : 'car';
+        url = `https://image.pollinations.ai/prompt/${prompt}?width=800&height=450&nologo=true&seed=${seed}`;
+    }
+
+    // DEBUG: Log the new AI URL (optional, can be noisy)
+    // console.log(`[getCarImage] AI Photo for ${car.brand} -> ${url}`);
+
+    return url;
+};

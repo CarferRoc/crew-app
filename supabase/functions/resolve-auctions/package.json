@@ -1,0 +1,13 @@
+{
+    "name": "resolve-auctions",
+    "version": "1.0.0",
+    "description": "Automatic auction resolution for Liga leagues",
+    "main": "index.ts",
+    "scripts": {
+        "test": "deno test --allow-all",
+        "deploy": "supabase functions deploy resolve-auctions"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.39.3"
+    }
+}

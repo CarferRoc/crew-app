@@ -12,8 +12,8 @@ export const JoinCrewScreen = ({ navigation }: any) => {
     const [loading, setLoading] = React.useState(false);
 
     const handleJoin = async () => {
-        if (code.length < 8) {
-            Alert.alert('Error', 'El código debe tener al menos 8 caracteres.');
+        if (code.length < 6) {
+            Alert.alert('Error', 'El código debe tener al menos 6 caracteres.');
             return;
         }
 
@@ -42,7 +42,7 @@ export const JoinCrewScreen = ({ navigation }: any) => {
                         color: activeTheme.colors.text,
                         borderColor: activeTheme.colors.border
                     }]}
-                    placeholder="Ej: A3F7K2M9"
+                    placeholder="Ej: A3F7K2"
                     placeholderTextColor={activeTheme.colors.textMuted}
                     value={code}
                     onChangeText={(text) => setCode(text.toUpperCase())}
