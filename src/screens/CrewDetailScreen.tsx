@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, TextInput, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, TextInput, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Dimensions, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useAppTheme } from '../theme';
@@ -22,15 +22,27 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
     const [loading, setLoading] = useState(true);
     const [joinMessage, setJoinMessage] = useState('');
     const [requestSent, setRequestSent] = useState(false);
-    const [activeTab, setActiveTab] = useState<'info' | 'chat' | 'events'>('info');
+    const [activeTab, setActiveTab] = useState<'info' | 'chat' | 'events' | 'alliances'>('info');
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
     const [pendingEvents, setPendingEvents] = useState<any[]>([]);
     const [currentMember, setCurrentMember] = useState<any>(null);
+
+    // Alliance State
+    const [alliances, setAlliances] = useState<any[]>([]);
+    const [allianceRequests, setAllianceRequests] = useState<any[]>([]);
+    const [myManagedCrews, setMyManagedCrews] = useState<any[]>([]);
+    const [showConnectModal, setShowConnectModal] = useState(false);
+    const [showLeaderSelection, setShowLeaderSelection] = useState(false);
 
     const scrollViewRef = useRef<ScrollView>(null);
 
     useEffect(() => {
         fetchCrewData();
+        fetchAlliances();
+        if (globalUser) {
+            const managed = useStore.getState().fetchMyManagedCrews();
+            setMyManagedCrews(managed.filter(c => c.id !== crewId)); // Exclude current crew
+        }
 
         const subscription = supabase
             .channel(`crew_detail:${crewId}`)
@@ -40,12 +52,22 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `crew_id=eq.${crewId}` }, () => {
                 fetchCrewData();
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'crew_alliances' }, () => {
+                // Simplified, refreshes on ANY alliance change (optimization: check IDs)
+                fetchAlliances();
+            })
             .subscribe();
 
         return () => {
             subscription.unsubscribe();
         };
     }, [crewId]);
+
+    const fetchAlliances = async () => {
+        const data = await useStore.getState().fetchCrewAlliances(crewId);
+        setAlliances(data);
+        setAllianceRequests(data.filter(a => a.target_crew_id === crewId && a.status === 'pending'));
+    };
 
     const fetchCrewData = async () => {
         try {
@@ -326,6 +348,46 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
 
     const userCrewRole = currentMember?.role;
 
+    const handleLeaveCrew = async (newLeaderId?: string) => {
+        if (!globalUser) return;
+
+        // Case 1: Leader triggering the flow (initial click)
+        if (userCrewRole === 'crew_lider' && members.length > 1 && !newLeaderId) {
+            setShowLeaderSelection(true);
+            return;
+        }
+
+        // Case 2: Simple leave (Member leave, or Leader leaving as last person, or confirmed transfer)
+        if (!newLeaderId) {
+            Alert.alert('Abandonar Crew', '¿Estás seguro de que quieres salir de esta crew?', [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Sí, Salir',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const success = await useStore.getState().leaveCrew(crewId, globalUser.id);
+                        if (success) navigation.goBack();
+                        else Alert.alert('Error', 'No se pudo salir');
+                    }
+                }
+            ]);
+            return;
+        }
+
+        // Case 3: Leader confirmed transfer
+        try {
+            const success = await useStore.getState().leaveCrew(crewId, globalUser.id, newLeaderId);
+            if (success) {
+                setShowLeaderSelection(false);
+                navigation.goBack();
+            } else {
+                Alert.alert('Error', 'Failed to transfer and leave');
+            }
+        } catch (e) {
+            Alert.alert('Error', 'An error occurred');
+        }
+    };
+
     const renderTabs = () => (
         <View style={styles.tabContainer}>
             <TouchableOpacity
@@ -355,8 +417,120 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                     <Ionicons name="chatbubble-ellipses-outline" size={16} color={theme.colors.textMuted} style={{ marginLeft: 4 }} />
                 </TouchableOpacity>
             )}
+            <TouchableOpacity
+                style={[styles.tab, activeTab === 'alliances' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
+                onPress={() => setActiveTab('alliances')}
+            >
+                <Text style={[styles.tabText, { color: activeTab === 'alliances' ? theme.colors.primary : theme.colors.textMuted }]}>Alliances</Text>
+            </TouchableOpacity>
         </View>
     );
+
+    const renderAlliances = () => {
+        // Calculate which of my crews are NOT yet allied
+        const availableCrewsToConnect = myManagedCrews.filter(myCrew => {
+            const isAllied = alliances.some(a =>
+                a.status === 'accepted' &&
+                (a.requester_crew_id === myCrew.id || a.target_crew_id === myCrew.id)
+            );
+            return !isAllied;
+        });
+
+        return (
+            <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
+                {/* Logic to show Request Button if I am a leader of ANOTHER crew AND not all are connected */}
+                {globalUser && !currentMember && availableCrewsToConnect.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>ACTIONS</Text>
+                        <Button
+                            title="Connect Crew"
+                            onPress={() => setShowConnectModal(true)}
+                            icon={<Ionicons name="link" size={20} color="#FFF" />}
+                        />
+                    </View>
+                )}
+
+                {/* Pending Requests (Only for Leaders of THIS crew) */}
+                {userCrewRole === 'crew_lider' && allianceRequests.length > 0 && (
+                    <View style={[styles.requestsCard, { backgroundColor: theme.colors.surfaceVariant }]}>
+                        <Text style={[styles.requestsTitle, { color: theme.colors.accent }]}>Alliance Requests</Text>
+                        {allianceRequests.map((req, index) => (
+                            <View key={index} style={[styles.requestItem, { borderBottomColor: theme.colors.border }]}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Image source={{ uri: req.requester?.image_url || 'https://via.placeholder.com/40' }} style={styles.avatarSmall} />
+                                    <Text style={{ color: theme.colors.text, marginLeft: 10, fontWeight: 'bold' }}>{req.requester?.name}</Text>
+                                </View>
+                                <View style={styles.requestActions}>
+                                    <TouchableOpacity onPress={() => useStore.getState().rejectAllianceRequest(req.id).then(fetchAlliances)} style={[styles.actionBtn, { backgroundColor: theme.colors.surface }]}>
+                                        <Ionicons name="close" size={20} color={theme.colors.error} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => useStore.getState().approveAllianceRequest(req.id).then(fetchAlliances)} style={[styles.actionBtn, { backgroundColor: theme.colors.primary, marginLeft: 10 }]}>
+                                        <Ionicons name="checkmark" size={20} color={theme.colors.white} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
+                {/* List of Alliances */}
+                <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 10 }]}>ALLIED CREWS</Text>
+                {alliances.filter(a => a.status === 'accepted').length === 0 ? (
+                    <Text style={{ color: theme.colors.textMuted }}>No alliances yet.</Text>
+                ) : (
+                    alliances.filter(a => a.status === 'accepted').map((alliance, index) => {
+                        const partner = alliance.requester_crew_id === crewId ? alliance.target : alliance.requester;
+
+                        // Check if I manage the OTHER side of this alliance
+                        const isMyManagedAlliance = myManagedCrews.some(c => c.id === partner.id) || (userCrewRole === 'crew_lider'); // Or if I am leader of THIS crew
+
+                        // Wait, "isMyManagedAlliance" isn't quite right.
+                        // Scenario 1: I am leader of THIS crew (crewId). I can break any alliance.
+                        // Scenario 2: I am leader of PARTNER crew. I can break the alliance too.
+                        const canDelete = userCrewRole === 'crew_lider' || myManagedCrews.some(c => c.id === partner.id);
+
+                        return (
+                            <View key={index} style={[styles.memberCard, { backgroundColor: theme.colors.surface, justifyContent: 'space-between' }]}>
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                                    onPress={() => navigation.push('CrewDetail', { crewId: partner.id })}
+                                >
+                                    <Image source={{ uri: partner.image_url || 'https://via.placeholder.com/50' }} style={styles.avatar} />
+                                    <View style={styles.memberInfo}>
+                                        <Text style={[styles.memberName, { color: theme.colors.text }]}>{partner.name}</Text>
+                                        <Text style={[styles.memberRole, { color: theme.colors.textMuted }]}>Ally</Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                {canDelete && (
+                                    <TouchableOpacity
+                                        style={{ padding: 8 }}
+                                        onPress={() => {
+                                            Alert.alert('Desvincular', `¿Romper alianza con ${partner.name}?`, [
+                                                { text: 'Cancelar', style: 'cancel' },
+                                                {
+                                                    text: 'Romper',
+                                                    style: 'destructive',
+                                                    onPress: async () => {
+                                                        const success = await useStore.getState().deleteAlliance(alliance.id);
+                                                        if (success) fetchAlliances();
+                                                        else Alert.alert('Error', 'Could not delete alliance');
+                                                    }
+                                                }
+                                            ])
+                                        }}
+                                    >
+                                        <Ionicons name="link-outline" size={24} color={theme.colors.error} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        );
+                    })
+                )}
+                <View style={{ height: 100 }} />
+            </ScrollView>
+        );
+    };
 
     const renderInfo = () => (
         <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
@@ -450,6 +624,19 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 </View>
             )}
 
+            {currentMember && (
+                <View style={styles.section}>
+                    <Button
+                        title="Abandonar Crew"
+                        onPress={() => handleLeaveCrew()}
+                        variant="secondary" // Or a specific danger variant if available, secondary is usually subtle
+                        style={{ marginTop: 20, borderColor: theme.colors.error, borderWidth: 1 }}
+                        textStyle={{ color: theme.colors.error }}
+                        icon={<Ionicons name="log-out-outline" size={20} color={theme.colors.error} />}
+                    />
+                </View>
+            )}
+
             <View style={{ height: 100 }} />
         </ScrollView>
     );
@@ -532,7 +719,77 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
 
             {renderTabs()}
 
-            {activeTab === 'info' ? renderInfo() : renderEvents()}
+            {activeTab === 'info' && renderInfo()}
+            {activeTab === 'events' && renderEvents()}
+            {activeTab === 'chat' && null /* Handled by nav, but nice to be explicit or remove */}
+            {activeTab === 'alliances' && renderAlliances()}
+
+            <Modal visible={showConnectModal} transparent={true} animationType="slide" onRequestClose={() => setShowConnectModal(false)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+                    <View style={{ backgroundColor: theme.colors.surface, borderRadius: 12, padding: 20 }}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.text, marginBottom: 15 }}>Connect Crew</Text>
+                        <Text style={{ color: theme.colors.textMuted, marginBottom: 15 }}>Select one of your crews to initiate an alliance with {crew.name}.</Text>
+
+                        {myManagedCrews.length === 0 ? (
+                            <Text style={{ color: theme.colors.error }}>You don't lead any other crews.</Text>
+                        ) : (
+                            myManagedCrews.map((c, i) => (
+                                <TouchableOpacity
+                                    key={i}
+                                    style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, flexDirection: 'row', alignItems: 'center' }}
+                                    onPress={async () => {
+                                        const result = await useStore.getState().sendAllianceRequest(c.id, crewId);
+                                        if (result === 'success') {
+                                            Alert.alert('Success', 'Alliance request sent!');
+                                            setShowConnectModal(false);
+                                        } else if (result === 'duplicate') {
+                                            Alert.alert('Info', 'Ya has enviado una invitación. Espera a que sea aceptada.');
+                                        } else {
+                                            Alert.alert('Error', 'Failed to send request');
+                                        }
+                                    }}
+                                >
+                                    <Image source={{ uri: c.badge || 'https://via.placeholder.com/30' }} style={{ width: 30, height: 30, borderRadius: 15, marginRight: 10 }} />
+                                    <Text style={{ color: theme.colors.text }}>{c.name}</Text>
+                                </TouchableOpacity>
+                            ))
+                        )}
+                        <Button title="Cancel" onPress={() => setShowConnectModal(false)} variant="secondary" style={{ marginTop: 15 }} />
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal visible={showLeaderSelection} transparent={true} animationType="slide" onRequestClose={() => setShowLeaderSelection(false)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+                    <View style={{ backgroundColor: theme.colors.surface, borderRadius: 12, padding: 20, maxHeight: '80%' }}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.text, marginBottom: 5 }}>Select New Leader</Text>
+                        <Text style={{ color: theme.colors.textMuted, marginBottom: 15 }}>You must select a new leader before leaving.</Text>
+
+                        <ScrollView>
+                            {members.filter(m => m.profile_id !== globalUser?.id).map((member, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                                    onPress={() => {
+                                        Alert.alert('Confirm', `Make ${member.user?.username} the new leader and leave?`, [
+                                            { text: 'Cancel', style: 'cancel' },
+                                            { text: 'Confirm', onPress: () => handleLeaveCrew(member.profile_id) }
+                                        ]);
+                                    }}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Image source={{ uri: member.user?.avatar_url || 'https://via.placeholder.com/30' }} style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }} />
+                                        <Text style={{ color: theme.colors.text, fontWeight: 'bold' }}>{member.user?.username}</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        <Button title="Cancel" onPress={() => setShowLeaderSelection(false)} variant="secondary" style={{ marginTop: 15 }} />
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
