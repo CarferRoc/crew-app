@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert, ActivityIndicator, Dimensions, TextInput } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../theme';
 import { Header } from '../components/Header';
@@ -14,6 +15,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
     const params = route.params || {};
     const userId = params.userId;
     const { currentUser, setUser, fetchGarage, garage } = useStore();
+    const { t } = useTranslation();
     const theme = useAppTheme();
 
     // If no userId provided, assume current user
@@ -22,16 +24,6 @@ export const ProfileScreen = ({ navigation, route }: any) => {
 
     const [profile, setProfile] = React.useState<any>(isCurrentUser ? currentUser : null);
     const [loading, setLoading] = React.useState(true);
-    const [uploading, setUploading] = React.useState(false);
-
-    // Edit Mode State
-    const [isEditing, setIsEditing] = React.useState(false);
-    const [editForm, setEditForm] = React.useState({
-        username: '',
-        bio: '',
-        location: '',
-        avatar_url: ''
-    });
 
     React.useEffect(() => {
         if (profileId) {
@@ -39,66 +31,6 @@ export const ProfileScreen = ({ navigation, route }: any) => {
             fetchGarage(profileId);
         }
     }, [profileId]);
-
-    React.useEffect(() => {
-        if (profile) {
-            setEditForm({
-                username: profile.username || '',
-                bio: profile.bio || '',
-                location: profile.location || '',
-                avatar_url: profile.avatar_url || ''
-            });
-        }
-    }, [profile]);
-
-    const pickImage = async () => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.5,
-            });
-
-            if (!result.canceled) {
-                uploadImage(result.assets[0].uri);
-            }
-        } catch (error) {
-            Alert.alert('Error', 'Error picking image');
-        }
-    };
-
-    const uploadImage = async (uri: string) => {
-        try {
-            setUploading(true);
-            const response = await fetch(uri);
-            const blob = await response.blob();
-            const arrayBuffer = await new Response(blob).arrayBuffer();
-
-            const filePath = `${profileId}/${new Date().getTime()}.jpg`;
-            const contentType = 'image/jpeg';
-
-            const { error } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, arrayBuffer, {
-                    contentType,
-                    upsert: true
-                });
-
-            if (error) throw error;
-
-            const { data } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-
-            setEditForm(prev => ({ ...prev, avatar_url: data.publicUrl }));
-        } catch (error: any) {
-            console.error('Upload failed:', error);
-            Alert.alert('Upload Error', JSON.stringify(error, null, 2));
-        } finally {
-            setUploading(false);
-        }
-    };
 
     const fetchProfile = async () => {
         try {
@@ -118,135 +50,6 @@ export const ProfileScreen = ({ navigation, route }: any) => {
         }
     };
 
-    const handleSaveProfile = async () => {
-        try {
-            setLoading(true);
-            const updates = {
-                username: editForm.username,
-                bio: editForm.bio,
-                location: editForm.location,
-                avatar_url: editForm.avatar_url,
-                updated_at: new Date().toISOString(),
-            };
-
-            const { error } = await supabase
-                .from('profiles')
-                .update(updates)
-                .eq('id', profileId);
-
-            if (error) throw error;
-
-            const updatedProfile = {
-                ...profile,
-                ...updates,
-                username: editForm.username,
-                avatar_url: editForm.avatar_url
-            };
-
-            setProfile(updatedProfile);
-            setIsEditing(false);
-
-            if (isCurrentUser) {
-                // @ts-ignore
-                setUser({ ...currentUser, ...updatedProfile });
-            }
-
-            Alert.alert('Success', 'Profile updated!');
-        } catch (error: any) {
-            console.error('Save failed:', error);
-            Alert.alert('Save Error', JSON.stringify(error, null, 2));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSignOut = async () => {
-        try {
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
-            setUser(null);
-        } catch (error) {
-            Alert.alert('Error', 'Failed to sign out');
-        }
-    };
-
-    const renderHeaderContent = () => {
-        if (isEditing) {
-            return (
-                <View style={{ alignItems: 'center', width: '100%' }}>
-                    <View style={styles.avatarContainer}>
-                        <Image
-                            source={{ uri: editForm.avatar_url || 'https://via.placeholder.com/150' }}
-                            style={[styles.avatar, { borderColor: theme.colors.background }]}
-                        />
-                        <TouchableOpacity
-                            style={[styles.roleBadge, { backgroundColor: theme.colors.surfaceVariant, bottom: 0, right: 0, borderWidth: 0 }]}
-                            onPress={pickImage}
-                            disabled={uploading}
-                        >
-                            {uploading ? (
-                                <ActivityIndicator size="small" color={theme.colors.text} />
-                            ) : (
-                                <Ionicons name="camera" size={16} color={theme.colors.text} />
-                            )}
-                        </TouchableOpacity>
-                    </View>
-
-                    <TextInput
-                        style={[styles.editInput, { color: theme.colors.text, fontSize: 24, fontWeight: '800', textAlign: 'center' }]}
-                        value={editForm.username}
-                        onChangeText={text => setEditForm({ ...editForm, username: text })}
-                        placeholder="Username"
-                        placeholderTextColor={theme.colors.textMuted}
-                    />
-
-                    <TextInput
-                        style={[styles.editInput, { color: theme.colors.textMuted, fontSize: 14, textAlign: 'center', marginVertical: 8 }]}
-                        value={editForm.bio}
-                        onChangeText={text => setEditForm({ ...editForm, bio: text })}
-                        placeholder="Bio"
-                        placeholderTextColor={theme.colors.textMuted}
-                        multiline
-                    />
-
-                    <View style={styles.locationContainer}>
-                        <Ionicons name="location-sharp" size={16} color={theme.colors.textMuted} />
-                        <TextInput
-                            style={[styles.editInput, { color: theme.colors.textMuted, fontSize: 14, marginLeft: 4 }]}
-                            value={editForm.location}
-                            onChangeText={text => setEditForm({ ...editForm, location: text })}
-                            placeholder="Location"
-                            placeholderTextColor={theme.colors.textMuted}
-                        />
-                    </View>
-                </View>
-            );
-        }
-
-        return (
-            <>
-                <View style={styles.avatarContainer}>
-                    <Image
-                        source={{ uri: profile.avatar_url || 'https://via.placeholder.com/150' }}
-                        style={[styles.avatar, { borderColor: theme.colors.background }]}
-                    />
-                    <View style={[styles.roleBadge, { backgroundColor: theme.colors.primary }]}>
-                        <Ionicons name="star" size={12} color="white" />
-                        <Text style={styles.roleText}>{profile.role || 'Member'}</Text>
-                    </View>
-                </View>
-
-                <Text style={[styles.nick, { color: theme.colors.text }]}>{profile.username}</Text>
-                <Text style={[styles.bio, { color: theme.colors.textMuted }]}>{profile.bio || 'Car enthusiast & nocturnal cruiser'}</Text>
-
-                <View style={styles.locationContainer}>
-                    <Ionicons name="location-sharp" size={16} color={theme.colors.textMuted} />
-                    <Text style={[styles.location, { color: theme.colors.textMuted }]}>{profile.location || 'Unknown Location'}</Text>
-                </View>
-            </>
-        );
-    };
-
     if (loading && !profile) {
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
@@ -260,12 +63,12 @@ export const ProfileScreen = ({ navigation, route }: any) => {
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Header
-                title={isCurrentUser ? "My Profile" : (profile?.nick || profile?.username || 'Profile')}
+                title={isCurrentUser ? t('profile.myProfileTitle') : (profile?.nick || profile?.username || t('navigation.profile'))}
                 showBack={!isCurrentUser}
                 onBack={() => navigation.goBack()}
                 rightAction={isCurrentUser ? (
-                    <TouchableOpacity onPress={handleSignOut}>
-                        <Ionicons name="log-out-outline" size={24} color={theme.colors.error} />
+                    <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={{ marginRight: 5 }}>
+                        <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
                     </TouchableOpacity>
                 ) : null}
             />
@@ -274,56 +77,41 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                 {/* Avatar & Header */}
                 <View style={[styles.headerSection, { backgroundColor: theme.colors.surface }]}>
 
-                    {renderHeaderContent()}
-
-                    {/* Stats */}
-                    <View style={[styles.statsContainer, { borderColor: theme.colors.border }]}>
-                        <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: theme.colors.text }]}>{profile.pointsPersonal || 0}</Text>
-                            <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>REP</Text>
-                        </View>
-                        <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
-                        <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: theme.colors.text }]}>{garage.length}</Text>
-                            <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>CARS</Text>
-                        </View>
-                        <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
-                        <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: theme.colors.text }]}>0</Text>
-                            <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>EVENTS</Text>
+                    <View style={styles.avatarContainer}>
+                        <Image
+                            source={{ uri: profile.avatar_url || 'https://via.placeholder.com/150' }}
+                            style={[styles.avatar, { borderColor: theme.colors.background }]}
+                        />
+                        <View style={[styles.roleBadge, { backgroundColor: theme.colors.primary }]}>
+                            <Ionicons name="star" size={12} color="white" />
+                            <Text style={styles.roleText}>{profile.role || 'Member'}</Text>
                         </View>
                     </View>
 
-                    {isCurrentUser && (
-                        <>
-                            <Button
-                                title={isEditing ? "Save Changes" : "Edit Profile"}
-                                variant={isEditing ? "primary" : "secondary"}
-                                style={{ marginTop: 20, width: '100%' }}
-                                onPress={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
-                            />
-                            {isEditing && (
-                                <Button
-                                    title="Cancel"
-                                    variant="outline"
-                                    style={{ marginTop: 10, width: '100%' }}
-                                    onPress={() => setIsEditing(false)}
-                                />
-                            )}
-                            {(profile.role === 'admin' && !isEditing) && (
-                                <Button
-                                    title="Admin Panel"
-                                    variant="primary"
-                                    style={{ marginTop: 10, width: '100%' }}
-                                    onPress={() => navigation.navigate('AdminPanel')}
-                                />
-                            )}
-                        </>
+                    <Text style={[styles.nick, { color: theme.colors.text }]}>{profile.username}</Text>
+                    <Text style={[styles.bio, { color: theme.colors.textMuted }]}>{profile.bio || t('profile.bioPlaceholder')}</Text>
+
+                    <View style={styles.locationContainer}>
+                        <Ionicons name="location-sharp" size={16} color={theme.colors.textMuted} />
+                        <Text style={[styles.location, { color: theme.colors.textMuted }]}>{profile.location || t('profile.locationPlaceholder')}</Text>
+                    </View>
+
+
+
+                    {/* Redesigned Admin Button */}
+                    {(isCurrentUser && profile.role === 'admin') && (
+                        <TouchableOpacity
+                            style={[styles.adminButton, { borderColor: theme.colors.primary }]}
+                            onPress={() => navigation.navigate('AdminPanel')}
+                        >
+                            <Ionicons name="shield-checkmark" size={16} color={theme.colors.primary} />
+                            <Text style={[styles.adminButtonText, { color: theme.colors.primary }]}>{t('profile.adminPanel')}</Text>
+                        </TouchableOpacity>
                     )}
 
                     {!isCurrentUser && (
                         <Button
-                            title="Send Message"
+                            title={t('profile.sendMessage')}
                             variant="primary"
                             icon={<Ionicons name="chatbubble-outline" size={20} color="#FFFFFF" />}
                             style={{ marginTop: 20, width: '100%' }}
@@ -344,7 +132,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                 {/* Garage Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>GARAGE</Text>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{t('profile.garage')}</Text>
                         {isCurrentUser && (
                             <TouchableOpacity onPress={() => navigation.navigate('AddCar')}>
                                 <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
@@ -384,7 +172,7 @@ export const ProfileScreen = ({ navigation, route }: any) => {
                         <View style={[styles.emptyState, { backgroundColor: theme.colors.surfaceVariant }]}>
                             <Ionicons name="car-sport-outline" size={40} color={theme.colors.textMuted} />
                             <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
-                                {isCurrentUser ? 'Tu garaje está vacío. ¡Añade tu máquina!' : 'Garaje vacío.'}
+                                {isCurrentUser ? t('profile.emptyGarage') : t('profile.emptyGarageOther')}
                             </Text>
                         </View>
                     )}
@@ -538,5 +326,21 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         width: '80%',
         textAlign: 'center'
+    },
+    adminButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        marginTop: 12,
+        gap: 6
+    },
+    adminButtonText: {
+        fontSize: 12,
+        fontWeight: '700',
+        textTransform: 'uppercase'
     }
 });

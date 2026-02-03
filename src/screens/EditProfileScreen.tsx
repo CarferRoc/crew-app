@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Alert, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { theme, useAppTheme } from '../theme';
 import { Header } from '../components/Header';
 import { Button } from '../components/Button';
@@ -11,8 +12,13 @@ import { uploadImage } from '../lib/storage';
 export const EditProfileScreen = ({ navigation }: any) => {
     const { currentUser, updateProfile } = useStore();
     const activeTheme = useAppTheme();
+    const { t } = useTranslation();
+
     const [username, setUsername] = useState(currentUser?.username || '');
+    const [bio, setBio] = useState(currentUser?.bio || '');
+    const [location, setLocation] = useState(currentUser?.location || '');
     const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatar_url || '');
+
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
 
@@ -29,10 +35,10 @@ export const EditProfileScreen = ({ navigation }: any) => {
             try {
                 const publicUrl = await uploadImage(result.assets[0].uri, 'avatars', `profiles/${currentUser?.id}`);
                 setAvatarUrl(publicUrl);
-                Alert.alert('Éxito', 'Foto subida correctamente');
+                Alert.alert(t('common.success'), t('profile.photoUploaded'));
             } catch (error: any) {
                 console.error('Upload error:', error);
-                Alert.alert('Error de subida', error.message || 'No se pudo subir la imagen.');
+                Alert.alert(t('common.error'), error.message || 'Upload failed');
             } finally {
                 setUploading(false);
             }
@@ -43,19 +49,24 @@ export const EditProfileScreen = ({ navigation }: any) => {
         if (!currentUser) return;
         setLoading(true);
 
+        const updates = {
+            username,
+            bio,
+            location,
+            avatar_url: avatarUrl,
+            updated_at: new Date().toISOString(),
+        };
+
         const { error } = await supabase
             .from('profiles')
-            .update({
-                username: username,
-                avatar_url: avatarUrl,
-            })
+            .update(updates)
             .eq('id', currentUser.id);
 
         if (error) {
-            Alert.alert('Error', error.message);
+            Alert.alert(t('common.error'), error.message);
         } else {
-            updateProfile({ username: username, avatar_url: avatarUrl });
-            Alert.alert('Éxito', 'Perfil actualizado correctamente');
+            updateProfile(updates);
+            Alert.alert(t('common.success'), t('profile.updateSuccess'));
             navigation.goBack();
         }
         setLoading(false);
@@ -63,7 +74,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
 
     return (
         <View style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
-            <Header title="Editar Perfil" showBack onBack={() => navigation.goBack()} />
+            <Header title={t('profile.editProfile')} showBack onBack={() => navigation.goBack()} />
             <ScrollView contentContainerStyle={styles.scroll}>
                 <View style={[styles.compactHeader, { borderBottomColor: activeTheme.colors.border }]}>
                     <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
@@ -74,12 +85,12 @@ export const EditProfileScreen = ({ navigation }: any) => {
                     </TouchableOpacity>
 
                     <View style={styles.nickContainer}>
-                        <Text style={[styles.label, { color: activeTheme.colors.textMuted }]}>Tu Apodo</Text>
+                        <Text style={[styles.label, { color: activeTheme.colors.textMuted }]}>{t('profile.username')}</Text>
                         <TextInput
                             style={[styles.input, { backgroundColor: activeTheme.colors.surface, color: activeTheme.colors.text, borderColor: activeTheme.colors.border }]}
                             value={username}
                             onChangeText={setUsername}
-                            placeholder="Tu apodo"
+                            placeholder={t('profile.username')}
                             placeholderTextColor={activeTheme.colors.textMuted}
                         />
                     </View>
@@ -92,6 +103,31 @@ export const EditProfileScreen = ({ navigation }: any) => {
                         {loading ? <ActivityIndicator size="small" color="white" /> : <Text style={styles.saveText}>✓</Text>}
                     </TouchableOpacity>
                 </View>
+
+                <View style={styles.form}>
+                    <Text style={[styles.label, { color: activeTheme.colors.textMuted }]}>{t('profile.bio')}</Text>
+                    <TextInput
+                        style={[styles.input, { backgroundColor: activeTheme.colors.surface, color: activeTheme.colors.text, borderColor: activeTheme.colors.border, height: 100, textAlignVertical: 'top' }]}
+                        value={bio}
+                        onChangeText={setBio}
+                        placeholder={t('profile.bioPlaceholder')}
+                        placeholderTextColor={activeTheme.colors.textMuted}
+                        multiline
+                        numberOfLines={4}
+                    />
+                </View>
+
+                <View style={styles.form}>
+                    <Text style={[styles.label, { color: activeTheme.colors.textMuted }]}>{t('profile.location')}</Text>
+                    <TextInput
+                        style={[styles.input, { backgroundColor: activeTheme.colors.surface, color: activeTheme.colors.text, borderColor: activeTheme.colors.border }]}
+                        value={location}
+                        onChangeText={setLocation}
+                        placeholder={t('profile.locationPlaceholder')}
+                        placeholderTextColor={activeTheme.colors.textMuted}
+                    />
+                </View>
+
             </ScrollView>
         </View>
     );
@@ -128,7 +164,7 @@ const styles = StyleSheet.create({
     nickContainer: {
         flex: 1,
     },
-    form: { marginTop: 10 },
+    form: { marginTop: 20 },
     label: { marginBottom: 8, fontSize: 12, textTransform: 'uppercase', fontWeight: 'bold' },
     input: {
         padding: theme.spacing.m,

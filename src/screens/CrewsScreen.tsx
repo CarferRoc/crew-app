@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useAppTheme } from '../theme';
 import { Header } from '../components/Header';
@@ -8,6 +9,7 @@ import { useStore } from '../store/useStore';
 import { Ionicons } from '@expo/vector-icons';
 
 export const CrewsScreen = ({ navigation }: any) => {
+    const { t } = useTranslation();
     const { currentUser, crews, fetchCrews } = useStore();
     const theme = useAppTheme();
     const [refreshing, setRefreshing] = React.useState(false);
@@ -30,7 +32,7 @@ export const CrewsScreen = ({ navigation }: any) => {
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Header
-                title="Crews"
+                title={t('crews.title')}
                 rightAction={
                     (currentUser.role === 'admin' || currentUser.role === 'lider') ? (
                         <TouchableOpacity onPress={() => navigation.navigate('CreateCrew')}>
@@ -48,7 +50,7 @@ export const CrewsScreen = ({ navigation }: any) => {
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
                             <Ionicons name="star" size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-                            <Text style={[styles.sectionTitle, { color: theme.colors.textMuted }]}>MIS CREWS</Text>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.textMuted }]}>{t('crews.myCrews')}</Text>
                         </View>
                         {myCrews.map(crew => (
                             <CrewCard
@@ -63,7 +65,7 @@ export const CrewsScreen = ({ navigation }: any) => {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Ionicons name="globe-outline" size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
-                        <Text style={[styles.sectionTitle, { color: theme.colors.textMuted }]}>EXPLORAR</Text>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.textMuted }]}>{t('crews.explore')}</Text>
                     </View>
 
                     {otherCrews.length > 0 ? (
@@ -76,13 +78,13 @@ export const CrewsScreen = ({ navigation }: any) => {
                         ))
                     ) : (
                         <View style={[styles.empty, { backgroundColor: theme.colors.surface }]}>
-                            <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>No hay otras crews disponibles.</Text>
+                            <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>{t('crews.noCrewsAvailable')}</Text>
                         </View>
                     )}
                 </View>
 
                 <Button
-                    title="Unirse por Código"
+                    title={t('crews.joinByCode')}
                     variant="outline"
                     icon={<Ionicons name="key-outline" size={18} color={theme.colors.text} />}
                     onPress={() => navigation.navigate('JoinCrew')}

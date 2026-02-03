@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Modal, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -39,25 +40,26 @@ export const LigaListLigaScreen = ({
     handleJoinLeague,
     handleCreateLeague
 }: LigaListLigaScreenProps) => {
+    const { t } = useTranslation();
     const activeTheme = useAppTheme();
 
     const renderOnboarding = () => (
         <View style={[styles.container, styles.centerContent]}>
             <View style={{ alignItems: 'center', marginBottom: 40 }}>
                 <Ionicons name="trophy-outline" size={80} color={activeTheme.colors.primary} />
-                <Text style={[styles.modalTitle, { color: activeTheme.colors.text, marginTop: 20 }]}>LIGAS MEET N'GREET</Text>
+                <Text style={[styles.modalTitle, { color: activeTheme.colors.text, marginTop: 20 }]}>{t('league.onboarding.title')}</Text>
                 <Text style={{ color: activeTheme.colors.textMuted, textAlign: 'center', maxWidth: 300 }}>
-                    Compite semanalmente, personaliza tus coches y domina las calles.
+                    {t('league.onboarding.subtitle')}
                 </Text>
             </View>
 
             <View style={{ width: '80%', gap: 16 }}>
                 <Button
-                    title="CREAR NUEVA LIGA"
+                    title={t('league.onboarding.createBtn')}
                     onPress={() => { setJoinMode('create'); setJoinModalVisible(true); }}
                 />
                 <Button
-                    title="UNIRME CON CÓDIGO"
+                    title={t('league.onboarding.joinBtn')}
                     variant="outline"
                     onPress={() => { setJoinMode('join'); setJoinModalVisible(true); }}
                 />
@@ -75,33 +77,33 @@ export const LigaListLigaScreen = ({
             <View style={styles.modalOverlay}>
                 <View style={[styles.modalContent, { backgroundColor: activeTheme.colors.surface }]}>
                     <Text style={[styles.modalTitle, { color: activeTheme.colors.text }]}>
-                        {joinMode === 'join' ? 'UNIRSE A LIGA' : 'CREAR LIGA'}
+                        {joinMode === 'join' ? t('league.join') : t('league.create')}
                     </Text>
 
                     {joinMode === 'join' ? (
                         <View style={styles.inputContainer}>
-                            <Text style={{ color: activeTheme.colors.textMuted }}>Código de invitación:</Text>
+                            <Text style={{ color: activeTheme.colors.textMuted }}>{t('league.form.inviteCode')}</Text>
                             <Button
-                                title={joinCode || "Introducir Código"}
+                                title={joinCode || t('league.form.enterCode')}
                                 variant="outline"
-                                onPress={() => Alert.prompt('Código', '', text => setJoinCode(text))}
+                                onPress={() => Alert.prompt(t('league.form.enterCode'), '', text => setJoinCode(text))}
                             />
-                            <Button title="Unirse" onPress={handleJoinLeague} style={{ marginTop: 10 }} />
+                            <Button title={t('league.join')} onPress={handleJoinLeague} style={{ marginTop: 10 }} />
                         </View>
                     ) : (
                         <View style={styles.inputContainer}>
-                            <Text style={{ color: activeTheme.colors.textMuted }}>Nombre de la liga:</Text>
+                            <Text style={{ color: activeTheme.colors.textMuted }}>{t('league.form.leagueName')}</Text>
                             <Button
-                                title={newLeagueName || "Introducir Nombre"}
+                                title={newLeagueName || t('league.form.enterName')}
                                 variant="outline"
-                                onPress={() => Alert.prompt('Nombre', '', text => setNewLeagueName(text))}
+                                onPress={() => Alert.prompt(t('league.form.enterName'), '', text => setNewLeagueName(text))}
                             />
-                            <Button title="Crear" onPress={handleCreateLeague} style={{ marginTop: 10 }} />
+                            <Button title={t('league.create')} onPress={handleCreateLeague} style={{ marginTop: 10 }} />
                         </View>
                     )}
 
                     <TouchableOpacity onPress={() => setJoinModalVisible(false)} style={{ marginTop: 20 }}>
-                        <Text style={{ color: activeTheme.colors.textMuted, textAlign: 'center' }}>Cancelar</Text>
+                        <Text style={{ color: activeTheme.colors.textMuted, textAlign: 'center' }}>{t('common.cancel')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -118,7 +120,7 @@ export const LigaListLigaScreen = ({
     return (
         <View style={styles.container}>
             <Header
-                title="MIS LIGAS"
+                title={t('league.title').toUpperCase()}
                 rightAction={null}
             />
 
@@ -141,20 +143,20 @@ export const LigaListLigaScreen = ({
                         <View style={{ flex: 1 }}>
                             <Text style={[styles.leagueName, { color: activeTheme.colors.text }]}>
                                 {item.league?.name
-                                    ? `Liga ${item.league.name}`
+                                    ? `${t('league.title')} ${item.league.name}`
                                     : item.name
-                                        ? `Liga ${item.name}`
-                                        : `Liga #${item.league_id?.slice(0, 6) || 'Sin ID'}`}
+                                        ? `${t('league.title')} ${item.name}`
+                                        : `${t('league.title')} #${item.league_id?.slice(0, 6) || 'N/A'}`}
                             </Text>
                             <Text style={[styles.leagueCode, { color: activeTheme.colors.textMuted }]}>
-                                Código: {item.league?.code || item.league_code || 'N/A'}
+                                {t('common.code')}: {item.league?.code || item.league_code || 'N/A'}
                             </Text>
                         </View>
                         <View>
                             <Text style={[styles.statValue, { color: activeTheme.colors.success }]}>
                                 €{(item.budget / 1000).toFixed(0)}k
                             </Text>
-                            <Text style={{ color: activeTheme.colors.textMuted, fontSize: 10 }}>SALDO</Text>
+                            <Text style={{ color: activeTheme.colors.textMuted, fontSize: 10 }}>{t('common.balance').toUpperCase()}</Text>
                         </View>
                     </TouchableOpacity>
                 )}
@@ -172,16 +174,16 @@ export const LigaListLigaScreen = ({
                 style={[styles.fab, { backgroundColor: activeTheme.colors.primary }]}
                 onPress={() => {
                     Alert.alert(
-                        "Nueva Liga",
-                        "¿Qué quieres hacer?",
+                        t('league.fab.title'),
+                        t('league.fab.message'),
                         [
-                            { text: "Cancelar", style: "cancel" },
+                            { text: t('common.cancel'), style: "cancel" },
                             {
-                                text: "Crear Liga",
+                                text: t('league.create'),
                                 onPress: () => { setJoinMode('create'); setJoinModalVisible(true); }
                             },
                             {
-                                text: "Unirme con Código",
+                                text: t('league.join'),
                                 onPress: () => { setJoinMode('join'); setJoinModalVisible(true); }
                             }
                         ]

@@ -1,0 +1,57 @@
+{
+    "common": {
+        "cancel": "Annulla",
+        "save": "Salva",
+        "edit": "Modifica",
+        "delete": "Elimina",
+        "error": "Errore",
+        "success": "Successo",
+        "loading": "Caricamento...",
+        "comingSoon": "Prossimamente"
+    },
+    "settings": {
+        "title": "Impostazioni",
+        "general": "GENERALE",
+        "account": "IL TUO ACCOUNT",
+        "notifications": "NOTIFICHE",
+        "info": "INFORMAZIONI",
+        "darkMode": "Modalità Scura",
+        "language": "Lingua",
+        "myProfile": "Il Mio Profilo",
+        "myActivity": "La Tua Attività",
+        "memberSince": "Membro dal",
+        "pushNotifications": "Notifiche Push",
+        "privacyPolicy": "Privacy Policy",
+        "termsOfService": "Termini di Servizio",
+        "appVersion": "Versione App",
+        "signOut": "Esci",
+        "signOutConfirmTitle": "Esci",
+        "signOutConfirmMessage": "Sei sicuro di voler uscire?"
+    },
+    "profile": {
+        "myProfileTitle": "Il Mio Profilo",
+        "editProfile": "Modifica Profilo",
+        "saveChanges": "Salva Modifiche",
+        "cancel": "Annulla",
+        "adminPanel": "Pannello Admin",
+        "sendMessage": "Invia Messaggio",
+        "garage": "GARAGE",
+        "rep": "REP",
+        "cars": "AUTO",
+        "events": "EVENTI",
+        "emptyGarage": "Il tuo garage è vuoto. Aggiungi la tua macchina!",
+        "emptyGarageOther": "Garage vuoto."
+    },
+    "activity": {
+        "title": "La Tua Attività",
+        "noEvents": "Non hai ancora partecipato a nessun evento.",
+        "exploreEvents": "Esplora Eventi"
+    },
+    "navigation": {
+        "crews": "Crews",
+        "war": "Guerra",
+        "rewards": "Premi",
+        "league": "Lega",
+        "profile": "Profilo"
+    }
+}

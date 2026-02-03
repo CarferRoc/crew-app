@@ -16,10 +16,12 @@ interface AppState {
     garage: GarageCar[];
     marketCars: any[]; // Changed to any[] temporarily or Car[] if imported, but using any to avoid type circular dep issues if Car definition is complex, but Car is imported.
     isDarkMode: boolean;
+    language: string;
 
     // Actions
     setUsers: (users: User[]) => void;
     setUser: (user: User | null) => void;
+    setLanguage: (language: string) => Promise<void>;
     setDarkMode: (dark: boolean) => void;
     updateProfile: (updates: Partial<User>) => void;
     updateUserRole: (userId: string, role: User['role']) => void;
@@ -91,10 +93,29 @@ export const useStore = create<AppState>((set, get) => {
         garage: [],
         marketCars: [],
         isDarkMode: true,
+        language: 'es',
 
         setUsers: (users: User[]) => set({ users }),
         setUser: (user: User | null) => set({ currentUser: user }),
         setDarkMode: (isDarkMode: boolean) => set({ isDarkMode }),
+        setLanguage: async (language: string) => {
+            try {
+                // Fix: Import the INITIALIZED instance from our config file, not the raw library
+                const i18n = require('../i18n').default;
+                const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+
+                if (i18n && typeof i18n.changeLanguage === 'function') {
+                    await i18n.changeLanguage(language);
+                } else {
+                    console.error('i18n instance not found or invalid');
+                }
+
+                await AsyncStorage.setItem('user-language', language);
+                set({ language });
+            } catch (error) {
+                console.error('Error changing language:', error);
+            }
+        },
 
         updateProfile: (updates: Partial<User>) => set(state => ({
             currentUser: state.currentUser ? { ...state.currentUser, ...updates } : null

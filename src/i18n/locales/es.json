@@ -1,0 +1,181 @@
+{
+    "common": {
+        "cancel": "Cancelar",
+        "save": "Guardar",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "error": "Error",
+        "success": "Éxito",
+        "loading": "Cargando...",
+        "comingSoon": "Próximamente",
+        "code": "Código",
+        "balance": "Saldo"
+    },
+    "settings": {
+        "title": "Configuración",
+        "general": "GENERAL",
+        "account": "TU CUENTA",
+        "notifications": "NOTIFICACIONES",
+        "info": "INFORMACIÓN",
+        "darkMode": "Modo Oscuro",
+        "language": "Idioma",
+        "myProfile": "Mi Perfil",
+        "myActivity": "Tu Actividad",
+        "memberSince": "Miembro desde",
+        "pushNotifications": "Notificaciones Push",
+        "privacyPolicy": "Política de Privacidad",
+        "termsOfService": "Términos de Servicio",
+        "appVersion": "Versión de la App",
+        "signOut": "Cerrar Sesión",
+        "signOutConfirmTitle": "Cerrar Sesión",
+        "signOutConfirmMessage": "¿Estás seguro de que quieres salir?"
+    },
+    "profile": {
+        "myProfileTitle": "Mi Perfil",
+        "editProfile": "Editar Perfil",
+        "saveChanges": "Guardar Cambios",
+        "cancel": "Cancelar",
+        "adminPanel": "Panel de Admin",
+        "sendMessage": "Enviar Mensaje",
+        "garage": "GARAJE",
+        "rep": "REP",
+        "cars": "COCHES",
+        "events": "EVENTOS",
+        "emptyGarage": "Tu garaje está vacío. ¡Añade tu máquina!",
+        "emptyGarageOther": "Este usuario no tiene coches en su garaje.",
+        "photoUploaded": "Foto subida correctamente.",
+        "updateSuccess": "Perfil actualizado correctamente.",
+        "bio": "Biografía",
+        "location": "Ubicación",
+        "bioPlaceholder": "Cuéntanos sobre ti...",
+        "locationPlaceholder": "Ciudad, País",
+        "adminPanel": "Panel de Administración"
+    },
+    "activity": {
+        "title": "Tu Actividad",
+        "noEvents": "No has asistido a ningún evento aún.",
+        "exploreEvents": "Explorar Eventos"
+    },
+    "navigation": {
+        "crews": "Crews",
+        "war": "Guerra",
+        "rewards": "Premios",
+        "league": "Liga",
+        "profile": "Perfil"
+    },
+    "crews": {
+        "title": "Crews",
+        "myCrews": "MIS CREWS",
+        "explore": "EXPLORAR",
+        "noCrewsAvailable": "No hay otras crews disponibles.",
+        "joinByCode": "Unirse por Código"
+    },
+    "war": {
+        "title": "Car War Global",
+        "createMonthlyWar": "CREAR GUERRA MENSUAL",
+        "globalRanking": "Ranking Global",
+        "recentBattles": "Batallas Recientes",
+        "alerts": {
+            "notice": "Aviso",
+            "warExists": "Ya existe una Guerra programada para este mes.",
+            "createTitle": "Crear Guerra Mensual",
+            "createMessage": "¿Quieres iniciar la Guerra de Clanes de este mes? Esto notificará a todos los usuarios.",
+            "successTitle": "Éxito",
+            "successMessage": "La Guerra Mensual ha sido crada.",
+            "errorTitle": "Error",
+            "errorMessage": "No se pudo crear el evento."
+        }
+    },
+    "rewards": {
+        "title": "Premios y Vales",
+        "yourPoints": "Tus Puntos Personales",
+        "pointsToPro": "Faltan {{points}} pts para el nivel Pro",
+        "tuningCatalog": "Catálogo Tuning"
+    },
+    "league": {
+        "title": "Liga",
+        "create": "Crear Liga",
+        "join": "Unirse a Liga",
+        "delete": "Eliminar Liga",
+        "confirmDelete": "¿Estás seguro de que quieres eliminar esta liga? Esta acción borrará la liga y todos sus participantes permanentemente.",
+        "nuclearOption": "OPCIÓN NUCLEAR",
+        "confirmNuclear": "¿Borrar TODAS tus ligas y participaciones? Esto no se puede deshacer.",
+        "cleanComplete": "Limpieza Completa",
+        "deleteSuccess": "Liga eliminada correctamente.",
+        "welcome": "¡Bienvenido!",
+        "auctionResults": "Resultados de Subasta",
+        "bidRegistered": "Puja Registrada",
+        "errors": {
+            "connection": "Error de Conexión",
+            "notEnoughCars": "No hay suficientes coches en la base de datos.",
+            "create": "No se pudo crear la liga.",
+            "join": "Código inválido o error de conexión.",
+            "codeLength": "El código de invitación debe tener al menos 6 caracteres.",
+            "alreadyIn": "Ya estás en esta liga.",
+            "invalidCode": "Código de liga inválido.",
+            "starterPack": "No se pudieron cargar los coches iniciales",
+            "noId": "No se encontró el ID o código de la liga."
+        },
+        "market": {
+            "title": "CONCESIONARIO",
+            "availableCars": "COCHES DISPONIBLES"
+        },
+        "tuning": {
+            "title": "TUNING",
+            "availableParts": "PIEZAS DISPONIBLES"
+        },
+        "garage": {
+            "title": "MI GARAJE",
+            "full": "Garaje Lleno",
+            "fullMessage": "Solo puedes tener un coche. Para comprar este, primero vende el que tienes en el garaje.",
+            "sell": "Vender Coche"
+        },
+        "participants": {
+            "title": "PARTICIPANTES"
+        },
+        "actions": {
+            "buy": "Comprar",
+            "sell": "Vender",
+            "install": "Instalar",
+            "explore": "Explorar"
+        },
+        "alerts": {
+            "insufficientFunds": "Saldo Insuficiente",
+            "insufficientFundsMessage": "Necesitas €{{cost}} pero solo tienes €{{balance}}.",
+            "confirmPurchase": "Confirmar Compra",
+            "confirmPurchaseMessage": "¿Comprar {{item}} por €{{price}}?",
+            "purchaseSuccess": "¡Compra Exitosa!",
+            "purchaseSuccessMessagePart": "Has comprado {{item}}. La pieza está en tu inventario.",
+            "purchaseSuccessMessageCar": "{{item}} ahora está en tu garaje.",
+            "purchaseSuccessMessageStarter": "{{item}} es ahora tu coche inicial. ¡Buena suerte!",
+            "confirmInstall": "Confirmar Instalación",
+            "confirmInstallMessage": "El coste de mano de obra es €{{cost}}.\n\n¿Instalar las modificaciones?",
+            "installSuccess": "¡Instalación Completa!",
+            "installSuccessMessage": "Has pagado €{{cost}} de mano de obra. Tus modificaciones están listas.",
+            "confirmSell": "¿Vender {{item}} por €{{price}}?\n\nLas piezas equipadas se devolverán a tu inventario.",
+            "sold": "¡Vendido!",
+            "soldMessage": "Has vendido tu {{item}} por €{{price}}.\n\nAhora puedes comprar un nuevo coche en el mercado.",
+            "invalidBid": "Puja Inválida",
+            "invalidBidMessage": "Tu puja debe ser mayor al precio del coche (€{{price}}). Puja actual: €{{bid}}.",
+            "bidRegistered": "Puja Registrada",
+            "bidRegisteredMessage": "Has pujado €{{amount}} por el {{item}}."
+        },
+        "onboarding": {
+            "title": "LIGAS MEET N'GREET",
+            "subtitle": "Compite semanalmente, personaliza tus coches y domina las calles.",
+            "createBtn": "CREAR NUEVA LIGA",
+            "joinBtn": "UNIRME CON CÓDIGO"
+        },
+        "form": {
+            "inviteCode": "Código de invitación:",
+            "leagueName": "Nombre de la liga:",
+            "enterCode": "Introducir Código",
+            "enterName": "Introducir Nombre",
+            "cancel": "Cancelar"
+        },
+        "fab": {
+            "title": "Nueva Liga",
+            "message": "¿Qué quieres hacer?"
+        }
+    }
+}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, FlatList, Dimensions } from 'react-native';
 import { theme, useAppTheme } from '../theme';
 import { Header } from '../components/Header';
@@ -6,6 +7,7 @@ import { VoucherCard } from '../components/VoucherCard';
 import { useStore } from '../store/useStore';
 
 export const RewardsScreen = () => {
+    const { t } = useTranslation();
     const { vouchers, currentUser, redeemVoucher } = useStore();
     const activeTheme = useAppTheme();
 
@@ -15,7 +17,7 @@ export const RewardsScreen = () => {
 
     return (
         <View style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
-            <Header title="Premios y Vales" />
+            <Header title={t('rewards.title')} />
             <FlatList
                 data={vouchers}
                 keyExtractor={(item) => item.id}
@@ -23,14 +25,14 @@ export const RewardsScreen = () => {
                 ListHeaderComponent={() => (
                     <View style={styles.header}>
                         <View style={[styles.pointsCard, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.primary + '40' }]}>
-                            <Text style={[styles.pointsLabel, { color: activeTheme.colors.textMuted }]}>Tus Puntos Personales</Text>
+                            <Text style={[styles.pointsLabel, { color: activeTheme.colors.textMuted }]}>{t('rewards.yourPoints')}</Text>
                             <Text style={[styles.pointsValue, { color: activeTheme.colors.text }]}>{currentUser.pointsPersonal}</Text>
                             <View style={[styles.progressBarBg, { backgroundColor: activeTheme.colors.surfaceVariant }]}>
                                 <View style={[styles.progressBarFill, { width: `${progress * 100}%`, backgroundColor: activeTheme.colors.primary }]} />
                             </View>
-                            <Text style={[styles.progressText, { color: activeTheme.colors.textMuted }]}>Faltan {500 - currentUser.pointsPersonal} pts para el nivel Pro</Text>
+                            <Text style={[styles.progressText, { color: activeTheme.colors.textMuted }]}>{t('rewards.pointsToPro', { points: 500 - currentUser.pointsPersonal })}</Text>
                         </View>
-                        <Text style={[styles.sectionTitle, { color: activeTheme.colors.textMuted }]}>Catálogo Tuning</Text>
+                        <Text style={[styles.sectionTitle, { color: activeTheme.colors.textMuted }]}>{t('rewards.tuningCatalog')}</Text>
                     </View>
                 )}
                 renderItem={({ item }) => (

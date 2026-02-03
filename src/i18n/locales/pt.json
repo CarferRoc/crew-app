@@ -1,0 +1,57 @@
+{
+    "common": {
+        "cancel": "Cancelar",
+        "save": "Salvar",
+        "edit": "Editar",
+        "delete": "Excluir",
+        "error": "Erro",
+        "success": "Sucesso",
+        "loading": "Carregando...",
+        "comingSoon": "Em Breve"
+    },
+    "settings": {
+        "title": "Configurações",
+        "general": "GERAL",
+        "account": "SUA CONTA",
+        "notifications": "NOTIFICAÇÕES",
+        "info": "INFORMAÇÕES",
+        "darkMode": "Modo Escuro",
+        "language": "Idioma",
+        "myProfile": "Meu Perfil",
+        "myActivity": "Sua Atividade",
+        "memberSince": "Membro desde",
+        "pushNotifications": "Notificações Push",
+        "privacyPolicy": "Política de Privacidade",
+        "termsOfService": "Termos de Serviço",
+        "appVersion": "Versão do App",
+        "signOut": "Sair",
+        "signOutConfirmTitle": "Sair",
+        "signOutConfirmMessage": "Tem certeza que deseja sair?"
+    },
+    "profile": {
+        "myProfileTitle": "Meu Perfil",
+        "editProfile": "Editar Perfil",
+        "saveChanges": "Salvar Alterações",
+        "cancel": "Cancelar",
+        "adminPanel": "Painel Admin",
+        "sendMessage": "Enviar Mensagem",
+        "garage": "GARAGEM",
+        "rep": "REP",
+        "cars": "CARROS",
+        "events": "EVENTOS",
+        "emptyGarage": "Sua garagem está vazia. Adicione sua máquina!",
+        "emptyGarageOther": "Garagem vazia."
+    },
+    "activity": {
+        "title": "Sua Atividade",
+        "noEvents": "Você ainda não participou de nenhum evento.",
+        "exploreEvents": "Explorar Eventos"
+    },
+    "navigation": {
+        "crews": "Crews",
+        "war": "Guerra",
+        "rewards": "Prêmios",
+        "league": "Liga",
+        "profile": "Perfil"
+    }
+}
