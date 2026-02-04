@@ -7,6 +7,7 @@ import { Input } from '../components/Input';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../store/useStore';
 import { Ionicons } from '@expo/vector-icons';
+import { calculateStats } from '../lib/gameplay';
 
 export const LoginScreen = ({ navigation }: any) => {
     const [email, setEmail] = useState('');
@@ -56,16 +57,21 @@ export const LoginScreen = ({ navigation }: any) => {
                 location: '',
                 role: profile.role,
                 pointsPersonal: 0,
+                saldo: profile.saldo || 0,
                 cars: (cars || []).map(c => ({
                     id: c.id,
                     brand: c.brand,
                     model: c.model,
+                    production_years: c.production_years || '',
                     year: c.year,
                     hp: c.hp,
                     nickname: c.nickname,
                     description: c.description,
                     mods: c.mods || [],
-                    photos: c.photos || []
+                    parts: c.parts || [],
+                    photos: c.photos || [],
+                    stats: c.stats || (c.brand && c.model ? calculateStats(c as any) : { ac: 0, mn: 0, tr: 0, cn: 0, es: 0, fi: 0 }),
+                    isStock: c.isStock ?? true
                 })),
             });
         }

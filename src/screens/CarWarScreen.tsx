@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { theme, useAppTheme } from '../theme';
@@ -9,6 +10,7 @@ import { Crew, ClanWarEvent } from '../models/types';
 import { RankingService } from '../services/RankingService';
 
 export const CarWarScreen = () => {
+    const { t } = useTranslation();
     const { battles, crews, chooseBattleWinner, currentUser } = useStore();
     const activeTheme = useAppTheme();
     const [activeWar, setActiveWar] = useState<ClanWarEvent | null>(null);
@@ -47,26 +49,26 @@ export const CarWarScreen = () => {
         try {
             const exists = await RankingService.checkMonthlyEventExists();
             if (exists) {
-                Alert.alert('Aviso', 'Ya existe una Guerra programada o finalizada para este mes.');
+                Alert.alert(t('war.alerts.notice'), t('war.alerts.warExists'));
                 return;
             }
 
             Alert.alert(
-                'Crear Guerra Mensual',
-                '¿Quieres iniciar la Guerra de Clanes de este mes? Esto notificará a todos los usuarios.',
+                t('war.alerts.createTitle'),
+                t('war.alerts.createMessage'),
                 [
-                    { text: 'Cancelar', style: 'cancel' },
+                    { text: t('common.cancel'), style: 'cancel' },
                     {
-                        text: 'Crear',
+                        text: t('common.create'), // Assuming added to common, or hardcode for now if missing
                         onPress: async () => {
                             try {
                                 const date = new Date();
                                 const monthName = date.toLocaleString('es-ES', { month: 'long' });
                                 await RankingService.createClanWarEvent(`Guerra de ${monthName}`, date);
-                                Alert.alert('Éxito', 'La Guerra Mensual ha sido crada.');
+                                Alert.alert(t('war.alerts.successTitle'), t('war.alerts.successMessage'));
                                 fetchWarStatus();
                             } catch (error) {
-                                Alert.alert('Error', 'No se pudo crear el evento.');
+                                Alert.alert(t('war.alerts.errorTitle'), t('war.alerts.errorMessage'));
                             }
                         }
                     }
@@ -124,7 +126,7 @@ export const CarWarScreen = () => {
                     style={[styles.createBtn, { backgroundColor: activeTheme.colors.primary }]}
                     onPress={handleCreateWar}
                 >
-                    <Text style={styles.createBtnText}>CREAR GUERRA MENSUAL</Text>
+                    <Text style={styles.createBtnText}>{t('war.createMonthlyWar')}</Text>
                 </TouchableOpacity>
             );
         }
@@ -195,7 +197,7 @@ export const CarWarScreen = () => {
 
     return (
         <View style={[styles.container, { backgroundColor: activeTheme.colors.background }]}>
-            <Header title="Car War Global" />
+            <Header title={t('war.title')} />
             <FlatList
                 data={battles}
                 keyExtractor={(item) => item.id}
@@ -227,11 +229,11 @@ export const CarWarScreen = () => {
                             </View>
                         )}
 
-                        <Text style={[styles.sectionTitle, { color: activeTheme.colors.textMuted }]}>Ranking Global</Text>
+                        <Text style={[styles.sectionTitle, { color: activeTheme.colors.textMuted }]}>{t('war.globalRanking')}</Text>
                         <View style={[styles.table, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border }]}>
                             {sortedCrews.map((crew, index) => renderRankRow(crew, index))}
                         </View>
-                        <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl, color: activeTheme.colors.textMuted }]}>Batallas Recientes</Text>
+                        <Text style={[styles.sectionTitle, { marginTop: theme.spacing.xl, color: activeTheme.colors.textMuted }]}>{t('war.recentBattles')}</Text>
                     </View>
                 }
                 renderItem={({ item }) => {
@@ -367,3 +369,5 @@ const styles = StyleSheet.create({
         fontWeight: '900',
     }
 });
+
+

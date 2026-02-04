@@ -1,0 +1,57 @@
+{
+    "common": {
+        "cancel": "Annuler",
+        "save": "Enregistrer",
+        "edit": "Modifier",
+        "delete": "Supprimer",
+        "error": "Erreur",
+        "success": "Succès",
+        "loading": "Chargement...",
+        "comingSoon": "Bientôt disponible"
+    },
+    "settings": {
+        "title": "Paramètres",
+        "general": "GÉNÉRAL",
+        "account": "VOTRE COMPTE",
+        "notifications": "NOTIFICATIONS",
+        "info": "INFORMATION",
+        "darkMode": "Mode Sombre",
+        "language": "Langue",
+        "myProfile": "Mon Profil",
+        "myActivity": "Votre Activité",
+        "memberSince": "Membre depuis",
+        "pushNotifications": "Notifications Push",
+        "privacyPolicy": "Politique de Confidentialité",
+        "termsOfService": "Conditions d'Utilisation",
+        "appVersion": "Version de l'App",
+        "signOut": "Se Déconnecter",
+        "signOutConfirmTitle": "Se Déconnecter",
+        "signOutConfirmMessage": "Êtes-vous sûr de vouloir vous déconnecter ?"
+    },
+    "profile": {
+        "myProfileTitle": "Mon Profil",
+        "editProfile": "Modifier Profil",
+        "saveChanges": "Enregistrer",
+        "cancel": "Annuler",
+        "adminPanel": "Panneau Admin",
+        "sendMessage": "Envoyer Message",
+        "garage": "GARAGE",
+        "rep": "REP",
+        "cars": "VOITURES",
+        "events": "ÉVÉNEMENTS",
+        "emptyGarage": "Votre garage est vide. Ajoutez votre machine !",
+        "emptyGarageOther": "Garage vide."
+    },
+    "activity": {
+        "title": "Votre Activité",
+        "noEvents": "Vous n'avez participé à aucun événement pour le moment.",
+        "exploreEvents": "Explorer Événements"
+    },
+    "navigation": {
+        "crews": "Crews",
+        "war": "Guerre",
+        "rewards": "Récompenses",
+        "league": "Ligne",
+        "profile": "Profil"
+    }
+}

@@ -1,7 +1,14 @@
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 
-// --- COMPONENTS (Hoisted) ---
- 
-function StatBar({ label, value, baseValue, color }: { label: string, value: number, baseValue: number, color: string }) {
+interface StatBarProps {
+    label: string;
+    value: number;
+    baseValue: number;
+    color: string;
+}
+
+export const StatBar = ({ label, value, baseValue, color }: StatBarProps) => {
     const diff = value - baseValue;
     return (
         <View style={styles.statRow}>
@@ -22,12 +29,21 @@ function StatBar({ label, value, baseValue, color }: { label: string, value: num
         </View>
     );
 };
- 
-function TechnicalRow({ label, value }: { label: string, value: string | number }) {
+
+export const TechnicalRow = ({ label, value }: { label: string, value: string | number }) => {
     return (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
             <Text style={{ color: '#8E8E93', fontSize: 13 }}>{label}</Text>
             <Text style={{ color: 'white', fontSize: 13, fontWeight: '500' }}>{value}</Text>
         </View>
     );
-}
+};
+
+const styles = StyleSheet.create({
+    statRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    statLabel: { width: 40, fontSize: 12, fontWeight: '700', color: '#888' },
+    statBarContainer: { flex: 1, height: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' },
+    statBarBase: { height: '100%', backgroundColor: '#FFF' },
+    statBarDiff: { position: 'absolute', height: '100%' },
+    statValue: { width: 40, fontSize: 12, fontWeight: '700', color: '#FFF', textAlign: 'right' },
+});

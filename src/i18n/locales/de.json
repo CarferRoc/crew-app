@@ -1,0 +1,57 @@
+{
+    "common": {
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "error": "Fehler",
+        "success": "Erfolg",
+        "loading": "Laden...",
+        "comingSoon": "Demnächst"
+    },
+    "settings": {
+        "title": "Einstellungen",
+        "general": "ALLGEMEIN",
+        "account": "DEIN KONTO",
+        "notifications": "BENACHRICHTIGUNGEN",
+        "info": "INFORMATION",
+        "darkMode": "Dunkelmodus",
+        "language": "Sprache",
+        "myProfile": "Mein Profil",
+        "myActivity": "Deine Aktivität",
+        "memberSince": "Mitglied seit",
+        "pushNotifications": "Push-Benachrichtigungen",
+        "privacyPolicy": "Datenschutz",
+        "termsOfService": "Nutzungsbedingungen",
+        "appVersion": "App-Version",
+        "signOut": "Abmelden",
+        "signOutConfirmTitle": "Abmelden",
+        "signOutConfirmMessage": "Bist du sicher, dass du dich abmelden möchtest?"
+    },
+    "profile": {
+        "myProfileTitle": "Mein Profil",
+        "editProfile": "Profil Bearbeiten",
+        "saveChanges": "Speichern",
+        "cancel": "Abbrechen",
+        "adminPanel": "Admin-Panel",
+        "sendMessage": "Nachricht Senden",
+        "garage": "GARAGE",
+        "rep": "RUF",
+        "cars": "AUTOS",
+        "events": "EVENTS",
+        "emptyGarage": "Dein Garage ist leer. Füge dein Auto hinzu!",
+        "emptyGarageOther": "Garage leer."
+    },
+    "activity": {
+        "title": "Deine Aktivität",
+        "noEvents": "Du hast noch an keinen Events teilgenommen.",
+        "exploreEvents": "Events Entdecken"
+    },
+    "navigation": {
+        "crews": "Crews",
+        "war": "Krieg",
+        "rewards": "Belohnungen",
+        "league": "Liga",
+        "profile": "Profil"
+    }
+}

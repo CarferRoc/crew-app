@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -16,6 +17,7 @@ import { MyInvitesScreen } from '../screens/MyInvitesScreen';
 import { EditProfileScreen } from '../screens/EditProfileScreen';
 import { AddCarScreen } from '../screens/AddCarScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { EventHistoryScreen } from '../screens/EventHistoryScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { AdminPanelScreen } from '../screens/AdminPanelScreen';
@@ -26,7 +28,7 @@ import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { CarDetailScreen } from '../screens/CarDetailScreen'; // Added
 import { useStore } from '../store/useStore';
 
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LigaScreen } from '../screens/LigaScreen';
 
 const Tab = createBottomTabNavigator();
@@ -56,6 +58,7 @@ const ProfileStack = () => (
         <Stack.Screen name="CarDetail" component={CarDetailScreen} />
         <Stack.Screen name="MyInvites" component={MyInvitesScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="EventHistory" component={EventHistoryScreen} />
         <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />
     </Stack.Navigator>
 );
@@ -75,6 +78,7 @@ const AuthStack = () => (
 );
 
 export const AppNavigator = () => {
+    const { t } = useTranslation();
     const { currentUser, isDarkMode } = useStore();
     const activeTheme = isDarkMode ? darkTheme : lightTheme;
 
@@ -112,6 +116,10 @@ export const AppNavigator = () => {
                             shadowRadius: 4,
                         },
                         tabBarIcon: ({ focused, color, size }) => {
+                            if (route.name === 'Liga') {
+                                return <MaterialCommunityIcons name="tire" size={size} color={color} />;
+                            }
+
                             let iconName: any;
 
                             if (route.name === 'CrewsTab') {
@@ -137,22 +145,22 @@ export const AppNavigator = () => {
                     <Tab.Screen
                         name="CrewsTab"
                         component={CrewsStack}
-                        options={{ tabBarLabel: 'Crews' }}
+                        options={{ tabBarLabel: t('navigation.crews') }}
                     />
                     <Tab.Screen
                         name="Global"
                         component={CarWarScreen}
-                        options={{ tabBarLabel: 'Guerra' }}
+                        options={{ tabBarLabel: t('navigation.war') }}
                     />
                     <Tab.Screen
                         name="Rewards"
                         component={RewardsScreen}
-                        options={{ tabBarLabel: 'Premios' }}
+                        options={{ tabBarLabel: t('navigation.rewards') }}
                     />
                     <Tab.Screen
                         name="Liga"
                         component={LigaScreen}
-                        options={{ tabBarLabel: 'Liga' }}
+                        options={{ tabBarLabel: t('navigation.league') }}
                     />
                     {/*
                     <Tab.Screen
@@ -164,7 +172,7 @@ export const AppNavigator = () => {
                     <Tab.Screen
                         name="ProfileTab"
                         component={ProfileStack}
-                        options={{ tabBarLabel: 'Perfil' }}
+                        options={{ tabBarLabel: t('navigation.profile') }}
                     />
                 </Tab.Navigator>
             )}

@@ -7,14 +7,23 @@ import { Button } from '../components/Button';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../store/useStore';
 import { uploadImage } from '../lib/storage';
+import { spanishCities } from '../constants/spanishCities';
+import { FlatList, Modal } from 'react-native';
 
 export const CreateCrewScreen = ({ navigation }: any) => {
     const activeTheme = useAppTheme();
     const { currentUser } = useStore();
     const [name, setName] = useState('');
+    const [location, setLocation] = useState('');
     const [description, setDescription] = useState('');
     const [image, setImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [showCityModal, setShowCityModal] = useState(false);
+    const [citySearch, setCitySearch] = useState('');
+
+    const filteredCities = spanishCities.filter(city =>
+        city.toLowerCase().includes(citySearch.toLowerCase())
+    );
 
     if (currentUser?.role !== 'lider' && currentUser?.role !== 'admin') {
         return (
@@ -75,8 +84,8 @@ export const CreateCrewScreen = ({ navigation }: any) => {
     };
 
     const handleCreate = async () => {
-        if (!name || !image) {
-            Alert.alert('Error', 'Por favor, introduce un nombre y una imagen para la crew.');
+        if (!name || !image || !location) {
+            Alert.alert('Error', 'Por favor, introduce nombre, ubicación e imagen.');
             return;
         }
 
@@ -91,6 +100,7 @@ export const CreateCrewScreen = ({ navigation }: any) => {
                 .insert({
                     name,
                     description,
+                    location,
                     image_url: logoUrl,
                     created_by: currentUser.id
                 })
@@ -139,6 +149,15 @@ export const CreateCrewScreen = ({ navigation }: any) => {
                     )}
                 </TouchableOpacity>
 
+                <TouchableOpacity
+                    style={[styles.input, { backgroundColor: activeTheme.colors.surface, borderColor: activeTheme.colors.border, justifyContent: 'center' }]}
+                    onPress={() => setShowCityModal(true)}
+                >
+                    <Text style={{ color: location ? activeTheme.colors.text : activeTheme.colors.textMuted }}>
+                        {location || "Seleccionar Ciudad (España)"}
+                    </Text>
+                </TouchableOpacity>
+
                 <TextInput
                     style={[styles.input, { backgroundColor: activeTheme.colors.surface, color: activeTheme.colors.text, borderColor: activeTheme.colors.border }]}
                     placeholder="Nombre de la Crew"
@@ -146,6 +165,8 @@ export const CreateCrewScreen = ({ navigation }: any) => {
                     value={name}
                     onChangeText={setName}
                 />
+
+
 
                 <TextInput
                     style={[styles.input, styles.textArea, { backgroundColor: activeTheme.colors.surface, color: activeTheme.colors.text, borderColor: activeTheme.colors.border }]}
@@ -163,6 +184,38 @@ export const CreateCrewScreen = ({ navigation }: any) => {
                     disabled={loading}
                 />
             </ScrollView>
+
+            <Modal visible={showCityModal} animationType="slide" presentationStyle="pageSheet">
+                <View style={[styles.modalContainer, { backgroundColor: activeTheme.colors.background }]}>
+                    <Header title="Seleccionar Ciudad" showBack onBack={() => setShowCityModal(false)} />
+                    <View style={{ padding: 16 }}>
+                        <TextInput
+                            style={[styles.input, { backgroundColor: activeTheme.colors.surface, color: activeTheme.colors.text }]}
+                            placeholder="Buscar ciudad..."
+                            placeholderTextColor={activeTheme.colors.textMuted}
+                            value={citySearch}
+                            onChangeText={setCitySearch}
+                            autoFocus
+                        />
+                    </View>
+                    <FlatList
+                        data={filteredCities}
+                        keyExtractor={(item) => item}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={[styles.cityItem, { borderBottomColor: activeTheme.colors.border }]}
+                                onPress={() => {
+                                    setLocation(item);
+                                    setShowCityModal(false);
+                                    setCitySearch('');
+                                }}
+                            >
+                                <Text style={{ color: activeTheme.colors.text, fontSize: 16 }}>{item}</Text>
+                            </TouchableOpacity>
+                        )}
+                    />
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -194,4 +247,11 @@ const styles = StyleSheet.create({
         height: 100,
         textAlignVertical: 'top',
     },
+    modalContainer: {
+        flex: 1,
+    },
+    cityItem: {
+        padding: 16,
+        borderBottomWidth: 1,
+    }
 });

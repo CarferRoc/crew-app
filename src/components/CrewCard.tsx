@@ -49,6 +49,14 @@ export const CrewCard: React.FC<CrewCardProps> = ({ crew, onPress }) => {
                         <Ionicons name="trophy-outline" size={14} color={theme.colors.textMuted} />
                         <Text style={[styles.statText, { color: theme.colors.textMuted }]}>{crew.scoreCrew} pts</Text>
                     </View>
+                    {crew.location && (
+                        <View style={[styles.stat, { marginLeft: 12 }]}>
+                            <Ionicons name="location-outline" size={14} color={theme.colors.textMuted} />
+                            <Text style={[styles.statText, { color: theme.colors.textMuted }]} numberOfLines={1}>
+                                {crew.location}
+                            </Text>
+                        </View>
+                    )}
                 </View>
             </View>
 

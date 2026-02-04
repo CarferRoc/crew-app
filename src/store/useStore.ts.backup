@@ -1,0 +1,1512 @@
+import { create } from 'zustand';
+import { User, Crew, CrewEvent, Battle, RewardVoucher, ChatMessage, Conversation, DirectMessage, GarageCar } from '../models/types';
+import { supabase } from '../lib/supabase';
+import { Alert } from 'react-native';
+
+interface AppState {
+    users: User[];
+    crews: Crew[];
+    events: CrewEvent[];
+    battles: Battle[];
+    vouchers: RewardVoucher[];
+    currentUser: User | null;
+    messages: Record<string, ChatMessage[]>; // crewId -> messages
+    conversations: Conversation[];
+    directMessages: Record<string, DirectMessage[]>; // conversationId -> messages
+    garage: GarageCar[];
+    marketCars: any[]; // Changed to any[] temporarily or Car[] if imported, but using any to avoid type circular dep issues if Car definition is complex, but Car is imported.
+    isDarkMode: boolean;
+
+    // Actions
+    setUsers: (users: User[]) => void;
+    setUser: (user: User | null) => void;
+    setDarkMode: (dark: boolean) => void;
+    updateProfile: (updates: Partial<User>) => void;
+    updateUserRole: (userId: string, role: User['role']) => void;
+    addCar: (car: any) => void;
+    joinCrewByInvite: (code: string) => Promise<boolean>;
+    fetchCrews: () => Promise<void>;
+    createEvent: (crewId: string, eventData: Partial<CrewEvent>) => void;
+    joinEvent: (eventId: string, userId: string, asCrewId?: string) => Promise<boolean>;
+    leaveEvent: (eventId: string, userId: string, asCrewId?: string) => Promise<boolean>;
+    chooseBattleWinner: (battleId: string, winnerCrewId: string) => void;
+    redeemVoucher: (voucherId: string, userId: string) => boolean;
+    setConversations: (conversations: Conversation[]) => void;
+    addDirectMessage: (convId: string, message: DirectMessage) => void;
+    generateInviteCode: (crewId: string) => Promise<string | null>;
+
+    // Invites
+    sendInvite: (crewId: string, userId: string) => Promise<boolean>;
+    fetchMyInvites: () => Promise<any[]>;
+    acceptInvite: (inviteId: string) => Promise<boolean>;
+    rejectInvite: (inviteId: string) => Promise<boolean>;
+
+    // Requests
+    requestJoinCrew: (crewId: string, message: string) => Promise<boolean>;
+    fetchCrewRequests: (crewId: string) => Promise<any[]>;
+    approveRequest: (requestId: string) => Promise<boolean>;
+    rejectRequest: (requestId: string) => Promise<boolean>;
+
+    // New Actions
+    fetchUserProfile: (userId: string) => Promise<User | null>;
+    createEventRequest: (crewId: string, eventData: { title: string, location: string, dateTime: string, description: string, latitude?: number, longitude?: number, image_url?: string }) => Promise<boolean>;
+    approveEvent: (eventId: string) => Promise<boolean>;
+    rejectEvent: (eventId: string) => Promise<boolean>;
+    deleteEvent: (eventId: string) => Promise<boolean>;
+    getOrCreateConversation: (otherUserId: string) => Promise<string | null>;
+
+    // Alliances
+    fetchMyManagedCrews: () => Crew[];
+    sendAllianceRequest: (requesterId: string, targetId: string) => Promise<'success' | 'duplicate' | 'error'>;
+    approveAllianceRequest: (allianceId: string) => Promise<boolean>;
+    rejectAllianceRequest: (allianceId: string) => Promise<boolean>;
+    deleteAlliance: (allianceId: string) => Promise<boolean>;
+    fetchCrewAlliances: (crewId: string) => Promise<any[]>;
+    leaveCrew: (crewId: string, userId: string, newLeaderId?: string) => Promise<boolean>;
+
+    // Market
+    fetchMarketCars: (type: 'new' | 'used', leagueId?: string) => Promise<void>;
+
+    // Garage
+    fetchGarage: (userId: string) => Promise<void>;
+    addCarToGarage: (car: Omit<GarageCar, 'id' | 'createdAt'>) => Promise<boolean>;
+
+    // Liga
+    fetchLeagueParticipants: (leagueId: string) => Promise<any[]>;
+}
+
+export const useStore = create<AppState>((set, get) => {
+    const lastFetchParams = { seed: -1, type: '' as 'new' | 'used' | '', leagueId: '' };
+
+    return {
+        users: [],
+        crews: [],
+        events: [],
+        battles: [],
+        vouchers: [],
+        currentUser: null,
+        messages: {},
+        conversations: [],
+        directMessages: {},
+        garage: [],
+        marketCars: [],
+        isDarkMode: true,
+
+        setUsers: (users: User[]) => set({ users }),
+        setUser: (user: User | null) => set({ currentUser: user }),
+        setDarkMode: (isDarkMode: boolean) => set({ isDarkMode }),
+
+        updateProfile: (updates: Partial<User>) => set(state => ({
+            currentUser: state.currentUser ? { ...state.currentUser, ...updates } : null
+        })),
+
+        updateUserRole: async (userId: string, role: User['role']) => {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ role })
+                .eq('id', userId);
+
+            if (!error) {
+                set(state => {
+                    const updatedUsers = state.users.map(u => u.id === userId ? { ...u, role } : u);
+                    const updatedCurrentUser = state.currentUser?.id === userId
+                        ? { ...state.currentUser, role }
+                        : state.currentUser;
+
+                    return {
+                        users: updatedUsers,
+                        currentUser: updatedCurrentUser
+                    };
+                });
+            } else {
+                throw error;
+            }
+        },
+
+        addCar: (car: any) => set(state => ({
+            currentUser: state.currentUser
+                ? { ...state.currentUser, cars: [...state.currentUser.cars, car] }
+                : null
+        })),
+
+        joinCrewByInvite: async (code: string) => {
+            const { currentUser } = get();
+            if (!currentUser) return false;
+            // Check if already a member of ANY crew
+            const { data: existingMembership } = await supabase
+                .from('crew_members')
+                .select('*')
+                .eq('profile_id', currentUser.id)
+                .single();
+
+            if (existingMembership) {
+                // Already in a crew (could be this one or another)
+                if (existingMembership.crew_id === crewData.id) {
+                    return true; // Already in this crew, treat as success
+                } else {
+                    Alert.alert('Error', 'Ya perteneces a una crew. Debes salirte antes de unirte a otra.');
+                    return false;
+                }
+            }
+
+            try {
+                // Find crew by invite code
+                const { data: crewData, error: crewError } = await supabase
+                    .from('crews')
+                    .select('*')
+                    .eq('invite_code', code.toUpperCase())
+                    .single();
+
+                if (crewError || !crewData) {
+                    return false;
+                }
+
+                // Check if already a member
+                const { data: memberData } = await supabase
+                    .from('crew_members')
+                    .select('*')
+                    .eq('crew_id', crewData.id)
+                    .eq('profile_id', currentUser.id)
+                    .single();
+
+                if (memberData) {
+                    // Already a member
+                    return true;
+                }
+
+                // Join crew
+                const { error: joinError } = await supabase
+                    .from('crew_members')
+                    .insert({
+                        crew_id: crewData.id,
+                        profile_id: currentUser.id,
+                        role: 'member'
+                    });
+
+                if (joinError) throw joinError;
+
+                // Refresh crews
+                await get().fetchCrews();
+                return true;
+
+            } catch (error) {
+                console.error('Error joining crew:', error);
+                return false;
+            }
+        },
+
+        fetchCrews: async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('crews')
+                    .select(`
+                    *,
+                    members_data:crew_members(profile_id),
+                    league:leagues(id, name, level)
+                `)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                const mappedCrews: Crew[] = (data || []).map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    badge: c.image_url || '',
+                    privacy: 'public',
+                    members: c.members_data?.map((m: any) => m.profile_id) || [],
+                    scoreCrew: c.score_crew || 0,
+                    createdBy: c.created_by,
+                    invites: [],
+                    inviteCode: c.invite_code,
+                    isVerified: false
+                }));
+
+                set({ crews: mappedCrews });
+            } catch (error) {
+                console.error('Error fetching crews:', error);
+            }
+        },
+
+        createEvent: (crewId: string, eventData: Partial<CrewEvent>) => {
+            const { currentUser } = get();
+            if (!currentUser) return;
+
+            const newEvent: CrewEvent = {
+                id: Math.random().toString(36).substr(2, 9),
+                crewId,
+                title: eventData.title || 'Untitled Event',
+                dateTime: eventData.dateTime || new Date().toISOString(),
+                location: eventData.location || 'TBA',
+                description: eventData.description || '',
+                capacity: eventData.capacity || 10,
+                attendees: [currentUser.id],
+                status: 'upcoming',
+                eventType: eventData.eventType || 'aesthetic'
+            };
+
+            set(state => ({
+                events: [...state.events, newEvent],
+                crews: state.crews.map(c =>
+                    c.id === crewId
+                        ? { ...c, scoreCrew: c.scoreCrew + 10 }
+                        : c
+                )
+            }));
+        },
+
+        joinEvent: async (eventId: string, userId: string) => {
+            try {
+                // Fetch current event to get attendees
+                const { data: event, error: fetchError } = await supabase
+                    .from('events')
+                    .select('attendees')
+                    .eq('id', eventId)
+                    .single();
+
+                if (fetchError) throw fetchError;
+
+                const currentAttendees = event.attendees || [];
+                if (currentAttendees.includes(userId)) return true; // Already joined
+
+                const updatedAttendees = [...currentAttendees, userId];
+
+                const { error: updateError } = await supabase
+                    .from('events')
+                    .update({ attendees: updatedAttendees })
+                    .eq('id', eventId);
+
+                if (updateError) throw updateError;
+
+                // Update local state (optimistic)
+                set(state => ({
+                    events: state.events.map(e =>
+                        e.id === eventId
+                            ? { ...e, attendees: updatedAttendees }
+                            : e
+                    )
+                }));
+
+                return true;
+            } catch (error) {
+                console.error('Error joining event:', error);
+                return false;
+            }
+        },
+
+        fetchCrews: async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('crews')
+                    .select(`
+                        *,
+                        members_data:crew_members(profile_id)
+                    `)
+                    .order('total_season_points', { ascending: false }); // Sort by score by default
+
+                if (error) throw error;
+
+                const mappedCrews: Crew[] = (data || []).map((c: any) => ({
+                    id: c.id,
+                    name: c.name,
+                    badge: c.image_url || '',
+                    privacy: 'public',
+                    members: c.members_data?.map((m: any) => m.profile_id) || [],
+                    scoreCrew: c.total_season_points || 0,
+                    createdBy: c.created_by,
+                    invites: [],
+                    inviteCode: c.invite_code,
+                    isVerified: false,
+                    // Ranking Mapping
+                    leagueId: c.league?.id,
+                    leagueName: c.league?.name || 'Unranked',
+                    leagueLevel: c.league?.level || 0,
+                    totalSeasonPoints: c.total_season_points || 0
+                }));
+
+                set({ crews: mappedCrews });
+            } catch (error) {
+                console.error('Error fetching crews:', error);
+            }
+        },
+
+        createEvent: (crewId: string, eventData: Partial<CrewEvent>) => {
+            const { currentUser } = get();
+            if (!currentUser) return;
+
+            const newEvent: CrewEvent = {
+                id: Math.random().toString(36).substr(2, 9),
+                crewId,
+                title: eventData.title || 'Untitled Event',
+                dateTime: eventData.dateTime || new Date().toISOString(),
+                location: eventData.location || 'TBA',
+                description: eventData.description || '',
+                capacity: eventData.capacity || 10,
+                attendees: [currentUser.id],
+                status: 'upcoming',
+                eventType: 'drift' // Default value
+            };
+
+            set(state => ({
+                events: [...state.events, newEvent],
+                crews: state.crews.map(c =>
+                    c.id === crewId
+                        ? { ...c, scoreCrew: c.scoreCrew + 10 }
+                        : c
+                )
+            }));
+        },
+
+        joinEvent: async (eventId: string, userId: string, asCrewId?: string) => {
+            try {
+                // Fetch current event to get attendees
+                const { data: event, error: fetchError } = await supabase
+                    .from('events')
+                    .select('attendees, participating_crew_ids')
+                    .eq('id', eventId)
+                    .single();
+
+                if (fetchError) throw fetchError;
+
+                if (asCrewId) {
+                    // Join as CREW
+                    const currentCrews = event.participating_crew_ids || [];
+                    if (currentCrews.includes(asCrewId)) return true; // Already joined
+
+                    const updatedCrews = [...currentCrews, asCrewId];
+                    const { error: updateError } = await supabase
+                        .from('events')
+                        .update({ participating_crew_ids: updatedCrews })
+                        .eq('id', eventId);
+
+                    if (updateError) throw updateError;
+                } else {
+                    // Join as USER
+                    const currentAttendees = event.attendees || [];
+                    if (currentAttendees.includes(userId)) return true; // Already joined
+
+                    const updatedAttendees = [...currentAttendees, userId];
+                    const { error: updateError } = await supabase
+                        .from('events')
+                        .update({ attendees: updatedAttendees })
+                        .eq('id', eventId);
+
+                    if (updateError) throw updateError;
+                }
+
+                // Update local state (optimistic or re-fetch would be better but simple mapping for now)
+                set(state => ({
+                    events: state.events.map(e =>
+                        e.id === eventId
+                            ? {
+                                ...e,
+                                attendees: !asCrewId ? [...(e.attendees || []), userId] : e.attendees,
+                                // We don't have participating_crews in the Type yet, but DB has it.
+                                // Ideally update type.
+                            }
+                            : e
+                    )
+                }));
+                return true;
+            } catch (error) {
+                console.error('Error joining event:', error);
+                return false;
+            }
+        },
+
+        leaveEvent: async (eventId: string, userId: string, asCrewId?: string) => {
+            try {
+                // Fetch current event to get attendees
+                const { data: event, error: fetchError } = await supabase
+                    .from('events')
+                    .select('attendees, participating_crew_ids')
+                    .eq('id', eventId)
+                    .single();
+
+                leaveEvent: async (eventId: string, userId: string) => {
+                    try {
+                        // Fetch current event to get attendees
+                        const { data: event, error: fetchError } = await supabase
+                            .from('events')
+                            .select('attendees')
+                            .eq('id', eventId)
+                            .single();
+
+                        if (fetchError) throw fetchError;
+
+                        const currentAttendees = event.attendees || [];
+                        if (!currentAttendees.includes(userId)) return true; // Already not attending
+
+                        const updatedAttendees = currentAttendees.filter((id: string) => id !== userId);
+
+                        const { error: updateError } = await supabase
+                            .from('events')
+                            .update({ attendees: updatedAttendees })
+                            .eq('id', eventId);
+
+                        if (updateError) throw updateError;
+
+                        // Update local state (optimistic)
+                        set(state => ({
+                            events: state.events.map(e =>
+                                e.id === eventId
+                                    ? { ...e, attendees: updatedAttendees }
+                                    : e
+                            )
+                        }));
+
+                        return true;
+                    } catch (error) {
+                        console.error('Error leaving event:', error);
+                        return false;
+                    }
+                },
+            if (asCrewId) {
+                    // Leave as CREW
+                    const currentCrews = event.participating_crew_ids || [];
+                    if (!currentCrews.includes(asCrewId)) return true; // Already not attending
+
+                    const updatedCrews = currentCrews.filter((id: string) => id !== asCrewId);
+                    const { error: updateError } = await supabase
+                        .from('events')
+                        .update({ participating_crew_ids: updatedCrews })
+                        .eq('id', eventId);
+
+                    if (updateError) throw updateError;
+                } else {
+                    // Leave as USER
+                    const currentAttendees = event.attendees || [];
+                    if (!currentAttendees.includes(userId)) return true; // Already not attending
+
+                    const updatedAttendees = currentAttendees.filter((id: string) => id !== userId);
+
+                    const { error: updateError } = await supabase
+                        .from('events')
+                        .update({ attendees: updatedAttendees })
+                        .eq('id', eventId);
+
+                    if (updateError) throw updateError;
+                }
+
+                chooseBattleWinner: (battleId: string, winnerCrewId: string) => {
+                    set(state => ({
+                        battles: state.battles.map(b =>
+                            b.id === battleId
+                                ? { ...b, winnerCrewId, decidedByAdmin: true }
+                                : b
+                        ),
+                        crews: state.crews.map(c =>
+                            c.id === winnerCrewId
+                                ? { ...c, scoreCrew: c.scoreCrew + 50 }
+                                : c
+                events: state.events.map(e =>
+                                    e.id === eventId
+                                        ? {
+                                            ...e,
+                                            attendees: !asCrewId ? (e.attendees || []).filter(id => id !== userId) : e.attendees,
+                                            // participating_crew_ids update implied if we had it in type
+                                        }
+                                        : e
+                                )
+            }));
+                },
+
+                    redeemVoucher: (voucherId: string, userId: string) => {
+                        const { vouchers, users, currentUser } = get();
+                        const voucher = vouchers.find(v => v.id === voucherId);
+                        const user = users.find(u => u.id === userId);
+
+                        if (voucher && user && currentUser && user.pointsPersonal >= voucher.pointsCost) {
+                            set(state => {
+                                if (!state.currentUser) return state;
+
+                                const updatedUsers = state.users.map(u =>
+                                    u.id === userId ? { ...u, pointsPersonal: u.pointsPersonal - voucher.pointsCost } : u
+                                );
+
+                                const updatedCurrentUser = state.currentUser.id === userId
+                                    ? { ...state.currentUser, pointsPersonal: state.currentUser.pointsPersonal - voucher.pointsCost }
+                                    : state.currentUser;
+
+                                const updatedVouchers = state.vouchers.map(v =>
+                                    v.id === voucherId ? { ...v, isRedeemed: true } : v
+                                );
+
+                                return {
+                                    users: updatedUsers,
+                                    currentUser: updatedCurrentUser,
+                                    vouchers: updatedVouchers
+                                };
+                            });
+                            return true;
+                        }
+                        return false;
+                    },
+
+                        setConversations: (conversations: Conversation[]) => set({ conversations }),
+                            addDirectMessage: (convId: string, message: DirectMessage) => set(state => ({
+                                directMessages: {
+                                    ...state.directMessages,
+                                    [convId]: [...(state.directMessages[convId] || []), message]
+                                }
+                            })),
+
+                                generateInviteCode: async (crewId: string) => {
+                                    try {
+                                        const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+                                        const { error } = await supabase
+                                            .from('crews')
+                                            .update({ invite_code: code })
+                                            .eq('id', crewId);
+
+                                        if (error) throw error;
+
+                                        // Update local state
+                                        set(state => ({
+                                            crews: state.crews.map(c => c.id === crewId ? { ...c, inviteCode: code } : c)
+                                        }));
+
+                                        return code;
+                                    } catch (error) {
+                                        console.error('Error generating invite code:', error);
+                                        return null;
+                                    }
+                                },
+
+                                    sendInvite: async (crewId: string, userId: string) => {
+                                        try {
+                                            const { error } = await supabase
+                                                .from('crew_invites')
+                                                .insert({ crew_id: crewId, user_id: userId });
+                                            sendInvite: async (crewId: string, userId: string) => {
+                                                try {
+                                                    // Check if user is already in a crew
+                                                    const { data: existingMembership } = await supabase
+                                                        .from('crew_members')
+                                                        .select('crew_id')
+                                                        .eq('profile_id', userId)
+                                                        .single();
+
+                                                    if (existingMembership) {
+                                                        // User is already in a crew
+                                                        return false;
+                                                    }
+
+                                                    const { error } = await supabase
+                                                        .from('crew_invites')
+                                                        .insert({ crew_id: crewId, user_id: userId });
+
+                                                    if (error) {
+                                                        console.error('Error sending invite:', error);
+                                                        return false;
+                                                    }
+                                                    return true;
+                                                } catch (error) {
+                                                    console.error(error);
+                                                    return false;
+                                                }
+                                            },
+
+                                                fetchMyInvites: async () => {
+                                                    try {
+                                                        const { currentUser } = get();
+                                                        if (!currentUser) return [];
+
+                                                        const { data, error } = await supabase
+                                                            .from('crew_invites')
+                                                            .select(`
+                    id, 
+                    created_at,
+                    crews (
+                        id,
+                        name,
+                        image_url,
+                        members_data:crew_members(count)
+                    )
+                `)
+                                                            .eq('user_id', currentUser.id)
+                                                            .order('created_at', { ascending: false });
+
+                                                        if (error) throw error;
+                                                        return data || [];
+                                                    } catch (error) {
+                                                        console.error('Error fetching invites:', error);
+                                                        return [];
+                                                    }
+                                                },
+
+                                                    acceptInvite: async (inviteId: string) => {
+                                                        try {
+                                                            const { currentUser } = get();
+                                                            if (!currentUser) return false;
+                                                            // Get invite details first to get crew_id
+                                                            const { data: invite } = await supabase
+                                                                .from('crew_invites')
+                                                                .select('crew_id')
+                                                                .eq('id', inviteId)
+                                                                .single();
+
+                                                            if (!invite) return false;
+
+                                                            // Check if already in a crew
+                                                            const { data: existingMembership } = await supabase
+                                                                .from('crew_members')
+                                                                .select('crew_id')
+                                                                .eq('profile_id', currentUser.id)
+                                                                .single();
+
+                                                            if (existingMembership) {
+                                                                Alert.alert('Error', 'Ya perteneces a una crew. Sal de tu crew actual para aceptar esta invitación.');
+                                                                return false;
+                                                            }
+
+                                                            // Join crew
+                                                            const { error: joinError } = await supabase
+                                                                .from('crew_members')
+                                                                .insert({
+                                                                    crew_id: invite.crew_id,
+                                                                    profile_id: currentUser.id,
+                                                                    role: 'member'
+                                                                });
+
+                                                            // Get invite details first to get crew_id
+                                                            const { data: invite } = await supabase
+                                                                .from('crew_invites')
+                                                                .select('crew_id')
+                                                                .eq('id', inviteId)
+                                                                .single();
+
+                                                            if (!invite) return false;
+
+                                                            // Join crew
+                                                            const { error: joinError } = await supabase
+                                                                .from('crew_members')
+                                                                .insert({
+                                                                    crew_id: invite.crew_id,
+                                                                    profile_id: currentUser.id,
+                                                                    role: 'member'
+                                                                });
+
+                                                            if (joinError) throw joinError;
+
+                                                            // Delete invite
+                                                            await supabase.from('crew_invites').delete().eq('id', inviteId);
+
+                                                            // Refetch crews
+                                                            await get().fetchCrews();
+                                                            return true;
+                                                        } catch (error) {
+                                                            console.error('Error accepting invite:', error);
+                                                            return false;
+                                                        }
+                                                    },
+            // Check if already in a crew
+            const { data: existingMembership } = await supabase
+                                                .from('crew_members')
+                                                .select('crew_id')
+                                                .eq('profile_id', currentUser.id)
+                                                .single();
+
+                                            if (existingMembership) {
+                                                Alert.alert('Error', 'Ya perteneces a una crew.');
+                                                return false;
+                                            }
+
+                                            const { error } = await supabase
+                                                .from('crew_join_requests')
+                                                .insert({
+                                                    crew_id: crewId,
+                                                    user_id: currentUser.id,
+                                                    message,
+                                                    status: 'pending'
+                                                });
+
+                                            rejectInvite: async (inviteId: string) => {
+                                                try {
+                                                    const { error } = await supabase
+                                                        .from('crew_invites')
+                                                        .delete()
+                                                        .eq('id', inviteId);
+                                                    return !error;
+                                                } catch (error) {
+                                                    console.error(error);
+                                                    return false;
+                                                }
+                                            },
+
+                                                requestJoinCrew: async (crewId: string, message: string) => {
+                                                    try {
+                                                        const { currentUser } = get();
+                                                        if (!currentUser) return false;
+
+                                                        const { error } = await supabase
+                                                            .from('crew_join_requests')
+                                                            .insert({
+                                                                crew_id: crewId,
+                                                                user_id: currentUser.id,
+                                                                message,
+                                                                status: 'pending'
+                                                            });
+
+                                                        if (error) throw error;
+                                                        return true;
+                                                    } catch (error) {
+                                                        console.error('Error requesting join:', error);
+                                                        return false;
+                                                    }
+                                                },
+
+                                                    fetchCrewRequests: async (crewId: string) => {
+                                                        try {
+                                                            const { data, error } = await supabase
+                                                                .from('crew_join_requests')
+                                                                .select(`
+                    *,
+                    user:profiles(*)
+                `)
+                                                                .eq('crew_id', crewId)
+                                                                .eq('status', 'pending')
+                                                                .order('created_at', { ascending: false });
+                .eq('crew_id', crewId)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false });
+
+        if(error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error fetching requests:', error);
+        return [];
+    }
+},
+
+    approveRequest: async (requestId: string) => {
+        try {
+            // Get request details
+            const { data: request } = await supabase
+                .from('crew_join_requests')
+                .select('*')
+                .eq('id', requestId)
+                .single();
+
+            if (!request) return false;
+
+            // Check if the user is ALREADY in a crew (maybe they joined another one while waiting)
+            const { data: existingMembership } = await supabase
+                .from('crew_members')
+                .select('crew_id')
+                .eq('profile_id', request.user_id)
+                .single();
+
+            if (existingMembership) {
+                // Reject request automatically if they are already in a crew
+                await supabase
+                    .from('crew_join_requests')
+                    .update({ status: 'rejected' })
+                    .eq('id', requestId);
+                return false;
+            }
+
+            // Add to members
+            const { error: joinError } = await supabase
+                .from('crew_members')
+                .insert({
+                    crew_id: request.crew_id,
+                    profile_id: request.user_id,
+                    role: 'member'
+                });
+
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching requests:', error);
+            return [];
+        }
+    },
+
+    approveRequest: async (requestId: string) => {
+        try {
+            // Get request details
+            const { data: request } = await supabase
+                .from('crew_join_requests')
+                .select('*')
+                .eq('id', requestId)
+                .single();
+
+            if (!request) return false;
+
+            // Add to members
+            const { error: joinError } = await supabase
+                .from('crew_members')
+                .insert({
+                    crew_id: request.crew_id,
+                    profile_id: request.user_id,
+                    role: 'member'
+                });
+
+            if (joinError) throw joinError;
+
+            // Update request status
+            await supabase
+                .from('crew_join_requests')
+                .update({ status: 'approved' })
+                .eq('id', requestId);
+
+            return true;
+        } catch (error) {
+            console.error('Error approving request:', error);
+            return false;
+        }
+    },
+
+    rejectRequest: async (requestId: string) => {
+        try {
+            const { error } = await supabase
+                .from('crew_join_requests')
+                .update({ status: 'rejected' })
+                .eq('id', requestId);
+
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+    createEventRequest: async (crewId: string, eventData: any) => {
+        try {
+            const { currentUser } = get();
+            if (!currentUser) return false;
+
+            // Determine status based on role (leader -> upcoming, member -> pending)
+            const { data: memberData } = await supabase
+                .from('crew_members')
+                .select('role')
+                .eq('crew_id', crewId)
+                .eq('profile_id', currentUser.id)
+                .single();
+
+            fetchUserProfile: async (userId: string) => {
+                try {
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', userId)
+                        .single();
+
+                    if (error) throw error;
+
+                    // Fetch cars properly
+                    // Note: cars are usually in a separate table, but for now assuming they might be attached or needing separate fetch
+                    // Let's assume cars are in 'cars' table
+                    const { data: carsData } = await supabase
+                        .from('cars')
+                        .select('*')
+                        .eq('owner_id', userId);
+
+                    return { ...data, cars: carsData || [] };
+                } catch (error) {
+                    console.error('Error fetching user profile:', error);
+                    return null;
+                }
+            },
+            const { data, error } = await supabase
+                .from('events')
+                .insert({
+                    crew_id: crewId,
+                    title: eventData.title,
+                    description: eventData.description,
+                    date_time: eventData.dateTime,
+                    location: eventData.location,
+                    latitude: eventData.latitude,
+                    longitude: eventData.longitude,
+                    image_url: eventData.image_url,
+                    created_by: currentUser.id,
+                    status: status,
+                    joint_crew_ids: eventData.jointCrewIds || []
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error creating event:', error);
+            // Alert.alert('Catch Error', JSON.stringify(error)); 
+            return false;
+        }
+    },
+
+    createEventRequest: async (crewId: string, eventData: { title: string, location: string, dateTime: string, description: string, latitude?: number, longitude?: number, image_url?: string }) => {
+        try {
+            const { currentUser } = get();
+            if (!currentUser) return false;
+
+            // Determine status based on role (leader -> upcoming, member -> pending)
+            // We need to check role in this crew
+            const { data: memberData } = await supabase
+                .from('crew_members')
+                .select('role')
+                .eq('crew_id', crewId)
+                .eq('profile_id', currentUser.id)
+                .single();
+
+            const isLeader = memberData?.role === 'crew_lider';
+            const status = isLeader ? 'upcoming' : 'pending';
+
+            const { error } = await supabase
+                .from('events')
+                .insert({
+                    crew_id: crewId,
+                    title: eventData.title || 'Quedada',
+                    date_time: eventData.dateTime,
+                    location: eventData.location,
+                    description: eventData.description,
+                    status: status,
+                    created_by: currentUser.id,
+                    latitude: eventData.latitude,
+                    longitude: eventData.longitude,
+                    image_url: eventData.image_url
+                });
+
+            if (error) {
+                console.error('Supabase Error:', error);
+                Alert.alert('Debug Error', JSON.stringify(error));
+                throw error;
+            }
+            return true;
+        } catch (error) {
+            console.error('Error creating event:', error);
+            // Alert.alert('Catch Error', JSON.stringify(error)); 
+            return false;
+        }
+    },
+
+    approveEvent: async (eventId: string) => {
+        try {
+            const { error } = await supabase
+                .from('events')
+                .update({ status: 'upcoming' })
+                .eq('id', eventId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    rejectEvent: async (eventId: string) => {
+        try {
+            const { error } = await supabase
+                .from('events')
+                .delete() // Simply delete the pending event
+                .eq('id', eventId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    deleteEvent: async (eventId: string) => {
+        try {
+            const { error } = await supabase
+                .from('events')
+                .delete()
+                .eq('id', eventId);
+
+            if (!error) {
+                set(state => ({
+                    events: state.events.filter(e => e.id !== eventId)
+                }));
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error deleting event:', error);
+            return false;
+        }
+    },
+
+
+
+    getOrCreateConversation: async (otherUserId: string) => {
+        try {
+            const { currentUser } = get();
+            if (!currentUser) return null;
+
+            // Sort IDs to ensure consistent order for participant columns
+            const ids = [currentUser.id, otherUserId].sort();
+            const p1 = ids[0];
+            const p2 = ids[1];
+
+            // 1. Direct Lookup in conversations table (Primary Source of Truth)
+            const { data: existing } = await supabase
+                .from('conversations')
+                .select('id')
+                .eq('participant1_id', p1)
+                .eq('participant2_id', p2)
+                .maybeSingle();
+
+            if (existing) {
+                return existing.id;
+            }
+
+            // 2. Create new conversation if not found
+            const { data: newConv, error: createError } = await supabase
+                .from('conversations')
+                .insert({
+                    participant1_id: p1,
+                    participant2_id: p2,
+                    last_message: 'Nueva conversación',
+                    updated_at: new Date().toISOString()
+                })
+                .select('id')
+                .single();
+
+            if (createError) {
+                // Handle Race Condition / Duplicate (PGRST204 or 23505)
+                if (createError.code === '23505') {
+                    // It was created by someone else in the meantime, fetch it
+                    const { data: retry } = await supabase
+                        .from('conversations')
+                        .select('id')
+                        .eq('participant1_id', p1)
+                        .eq('participant2_id', p2)
+                        .maybeSingle();
+                    return retry?.id || null;
+                }
+                throw createError;
+            }
+
+            // 3. Add participants to junction table (Best effort for compatibility)
+            const { error: partError } = await supabase
+                .from('conversation_participants')
+                .insert([
+                    { conversation_id: newConv.id, user_id: currentUser.id },
+                    { conversation_id: newConv.id, user_id: otherUserId }
+                ]);
+
+            if (partError) {
+                console.warn('Could not add to conversation_participants:', partError);
+            }
+
+            return newConv.id;
+        } catch (error) {
+            console.error('Error getting conversation:', error);
+            return null;
+        }
+    },
+
+    fetchMyManagedCrews: () => {
+        const { crews, currentUser } = get();
+        if (!currentUser) return [];
+        // Ideally we should check role from `crew_members` table or store, 
+        // but for now we rely on `createdBy` or if we have roles in `crews` store (which we mapped poorly).
+        // Let's rely on checking `created_by` for simplicity or iterate members if available.
+        // Actually, in fetchCrews we mapped members. 
+        // Better: We need to know where I am leader. 
+        // Let's assume for now "created_by" denotes Ownership/Leadership for this feature, 
+        // OR we can fetch from DB. 
+        // Given we don't store roles in `crews` list state efficiently, let's filter by createdBy for MVP.
+        return crews.filter(c => c.createdBy === currentUser.id);
+    },
+
+    sendAllianceRequest: async (requesterId: string, targetId: string) => {
+        try {
+            const { error } = await supabase
+                .from('crew_alliances')
+                .insert({
+                    requester_crew_id: requesterId,
+                    target_crew_id: targetId,
+                    status: 'pending'
+                });
+            if (error) {
+                if (error.code === '23505') return 'duplicate'; // Unique violation
+                throw error;
+            }
+            return 'success';
+        } catch (error) {
+            console.error('Error sending alliance request:', error);
+            // Alert.alert('Error', JSON.stringify(error));
+            return 'error';
+        }
+    },
+
+    approveAllianceRequest: async (allianceId: string) => {
+        try {
+            const { error } = await supabase
+                .from('crew_alliances')
+                .update({ status: 'accepted' })
+                .eq('id', allianceId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    rejectAllianceRequest: async (allianceId: string) => {
+        try {
+            const { error } = await supabase
+                .from('crew_alliances')
+                .update({ status: 'rejected' }) // or delete
+                .eq('id', allianceId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    deleteAlliance: async (allianceId: string) => {
+        try {
+            const { error } = await supabase
+                .from('crew_alliances')
+                .delete()
+                .eq('id', allianceId);
+            return !error;
+        } catch (error) {
+            console.error(error);
+            return false;
+        }
+    },
+
+    fetchCrewAlliances: async (crewId: string) => {
+        try {
+            // We need alliances where I am requester OR target
+            const { data, error } = await supabase
+                .from('crew_alliances')
+                .select(`
+                    *,
+                    requester:crews!requester_crew_id(id, name, image_url),
+                    target:crews!target_crew_id(id, name, image_url)
+                `)
+                .or(`requester_crew_id.eq.${crewId},target_crew_id.eq.${crewId}`);
+
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching alliances:', error);
+            return [];
+        }
+    },
+
+    fetchMarketCars: async (type: 'new' | 'used', leagueId?: string) => {
+        try {
+            // CACHE CHECK: If same parameters, skip fetch
+            const cacheKeyLeague = leagueId || '';
+            const cacheKeyType = type;
+            if (lastFetchParams.seed === 0 && lastFetchParams.type === cacheKeyType && lastFetchParams.leagueId === cacheKeyLeague) {
+                console.log(`[Store] Skipping Market Fetch (Cached) for ${type} / ${leagueId}`);
+                return;
+            }
+
+            console.log(`[Store] Fetching Market via RPC (Type: ${type}, League: ${leagueId})`);
+
+            if (!leagueId) {
+                // console.warn('[Store] No leagueId provided for market fetch');
+                return;
+            }
+
+            // CALL RPC
+            const { data, error } = await supabase.rpc('get_daily_market', {
+                p_league_id: leagueId,
+                p_type: type
+            });
+
+            if (error) {
+                console.error('[Store] fetchMarketCars RPC ERROR:', error);
+                throw error;
+            }
+
+            // Map raw data (Same robust parsing logic)
+            const mappedCars: any[] = (data || []).map((row: any) => { // row is now any because we use RPC result
+                let imgs: string[] = [];
+                if (row.image_urls && Array.isArray(row.image_urls)) imgs = row.image_urls;
+                else if (typeof row.image_urls === 'string') {
+                    try { imgs = JSON.parse(row.image_urls); }
+                    catch { imgs = row.image_urls.split(',').map((s: string) => s.trim()); }
+                }
+                const image = imgs[0] || 'https://via.placeholder.com/800x450';
+
+                // Parse Power
+                let hpVal = 100;
+                const parsePowerString = (str: string) => {
+                    if (!str) return null;
+                    const pClean = str.toString().replace(/,/g, '.');
+                    const matchHP = pClean.match(/(\d+(?:\.\d+)?)\s*(?:HP|CV|BHP|PS)/i);
+                    const matchKW = pClean.match(/(\d+(?:\.\d+)?)\s*KW/i);
+                    if (matchHP) return Math.round(parseFloat(matchHP[1]));
+                    if (matchKW) return Math.round(parseFloat(matchKW[1]) * 1.36);
+                    return null;
+                };
+
+                if (row.power) {
+                    const val = parsePowerString(row.power);
+                    if (val) hpVal = val;
+                }
+                if (hpVal === 100 && (!row.power || !parsePowerString(row.power))) {
+                    if (row.engine_specs_title) {
+                        const val = parsePowerString(row.engine_specs_title);
+                        if (val) hpVal = val;
+                    }
+                    if (hpVal === 100 && row.title) {
+                        const val = parsePowerString(row.title);
+                        if (val) hpVal = val;
+                    }
+                }
+
+                let year = row.from_year;
+                if (!year && row.production_years) {
+                    const yMatch = row.production_years.match(/(\d{4})/);
+                    if (yMatch) year = parseInt(yMatch[1]);
+                }
+                if (!year) year = 2000;
+
+                // Safe Float Parsing
+                const safeFloat = (v: any) => {
+                    if (typeof v === 'number') return v;
+                    if (typeof v === 'string') return parseFloat(v.replace(',', '.')) || 0;
+                    return 0;
+                };
+
+                const accel = safeFloat(row.acceleration);
+                const tspeed = safeFloat(row.top_speed);
+                const weight = safeFloat(row.unladen_weight) || 1500;
+                const cons = safeFloat(row.combined) || 8;
+
+                const st_ac = accel > 0 ? Math.max(10, Math.min(100, 115 - (accel * 8))) : 50;
+                const st_tr = tspeed > 0 ? Math.max(10, Math.min(100, tspeed / 3.2)) : 50;
+                const st_mn = Math.max(10, Math.min(100, 130 - (weight / 20)));
+                const st_cn = Math.max(10, Math.min(100, 100 - (cons * 4)));
+
+                let st_fi = 100;
+                if (type === 'used') {
+                    const age = Math.max(0, new Date().getFullYear() - year);
+                    st_fi = Math.max(30, 95 - (age * 2.5));
+                }
+
+                const realStats = {
+                    ac: Math.round(st_ac),
+                    mn: Math.round(st_mn),
+                    tr: Math.round(st_tr),
+                    cn: Math.round(st_cn),
+                    es: 50,
+                    fi: Math.round(st_fi)
+                };
+
+                const basePrice = type === 'new'
+                    ? (hpVal * 300) + 10000
+                    : (hpVal * 180) + 2000;
+
+                return {
+                    id: row.id,
+                    brand: row.brand,
+                    model: row.model,
+                    production_years: row.production_years,
+                    from_year: row.from_year,
+                    to_year: row.to_year,
+                    body_style: row.body_style,
+                    segment: row.segment,
+                    title: row.title,
+                    description: row.description,
+
+                    engine_specs_title: row.engine_specs_title,
+                    cylinders: row.cylinders,
+                    displacement: row.displacement,
+                    power: row.power,
+                    torque: row.torque,
+                    fuel_system: row.fuel_system,
+                    fuel: row.fuel,
+                    fuel_capacity: row.fuel_capacity,
+
+                    top_speed: row.top_speed,
+                    acceleration: row.acceleration,
+                    aerodynamics: row.aerodynamics,
+                    drive_type: row.drive_type,
+                    gearbox: row.gearbox,
+                    unladen_weight: row.unladen_weight,
+
+                    hp: hpVal,
+                    price: Math.floor(basePrice),
+                    isUsed: type === 'used',
+                    year: year,
+                    image_urls: imgs,
+
+                    stats: realStats,
+                    dbStats: realStats,
+                    baseStats: realStats,
+                    parts: []
+                };
+            });
+
+            // Update Cache (We use 0 as 'valid fetch done' for seed since we don't use seed anymore)
+            lastFetchParams.seed = 0;
+            lastFetchParams.type = type;
+            lastFetchParams.leagueId = leagueId || '';
+
+            set({ marketCars: mappedCars });
+
+        } catch (error) {
+            console.error('Error fetching market cars:', error);
+        }
+    },
+
+    leaveCrew: async (crewId: string, userId: string, newLeaderId?: string) => {
+        try {
+            // Check if user is leader
+            const { data: memberData, error: memberError } = await supabase
+                .from('crew_members')
+                .select('role')
+                .eq('crew_id', crewId)
+                .eq('profile_id', userId)
+                .single();
+
+            if (memberError) throw memberError;
+
+            // QUANTITY CHECK
+            const { count } = await supabase
+                .from('crew_members')
+                .select('*', { count: 'exact', head: true })
+                .eq('crew_id', crewId);
+
+            if (memberData.role === 'crew_lider' && count && count > 1) {
+                if (!newLeaderId) {
+                    console.error("Leader must appoint a successor");
+                    return false;
+                }
+
+                // Transfer leadership
+                const { error: updateError } = await supabase
+                    .from('crew_members')
+                    .update({ role: 'crew_lider' })
+                    .eq('crew_id', crewId)
+                    .eq('profile_id', newLeaderId);
+
+                if (updateError) throw updateError;
+
+                // Update crew owner (for fetchMyManagedCrews consistency)
+                await supabase
+                    .from('crews')
+                    .update({ created_by: newLeaderId })
+                    .eq('id', crewId);
+            }
+
+            if (count === 1) {
+                // If I'm the last one, delete the crew completely (CASCADE will handle members)
+                const { error: deleteCrewError } = await supabase
+                    .from('crews')
+                    .delete()
+                    .eq('id', crewId);
+
+                if (deleteCrewError) throw deleteCrewError;
+            } else {
+                // If there are more people, delete only my membership
+                const { error } = await supabase
+                    .from('crew_members')
+                    .delete()
+                    .eq('crew_id', crewId)
+                    .eq('profile_id', userId);
+
+                if (error) throw error;
+            }
+
+            // Refresh crews to update UI
+            await get().fetchCrews();
+            return true;
+        } catch (error) {
+            console.error('Error leaving crew:', error);
+            return false;
+        }
+    },
+
+    fetchGarage: async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('garaje')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const mapped: GarageCar[] = (data || []).map(item => ({
+                id: item.id,
+                userId: item.user_id,
+                name: item.name,
+                nickname: item.nickname,
+                power: item.power,
+                specs: item.specs,
+                photos: item.photos || [],
+                createdAt: item.created_at
+            }));
+
+            set({ garage: mapped });
+        } catch (error) {
+            console.error('Error fetching garage:', error);
+            set({ garage: [] });
+        }
+    },
+
+    addCarToGarage: async (car) => {
+        try {
+            const { currentUser } = get();
+            if (!currentUser) return false;
+
+            const { error } = await supabase
+                .from('garaje')
+                .insert({
+                    user_id: currentUser.id,
+                    name: car.name,
+                    nickname: car.nickname,
+                    power: car.power,
+                    specs: car.specs,
+                    photos: car.photos
+                });
+
+            if (error) throw error;
+
+            // Refresh if it's my garage
+            await get().fetchGarage(currentUser.id);
+            return true;
+        } catch (error) {
+            console.error('Error adding car to garage:', error);
+            return false;
+        }
+    },
+
+    fetchLeagueParticipants: async (leagueId: string) => {
+        try {
+            // Fetch participants first
+            const { data: participants, error: participantsError } = await supabase
+                .from('league_participants')
+                .select('id, user_id, budget, created_at')
+                .eq('league_code', leagueId)
+                .order('budget', { ascending: false });
+
+            if (participantsError) throw participantsError;
+            if (!participants || participants.length === 0) return [];
+
+            // Get all user IDs
+            const userIds = participants.map(p => p.user_id);
+
+            // Fetch profiles for these users
+            const { data: profiles, error: profilesError } = await supabase
+                .from('profiles')
+                .select('id, username, avatar_url')
+                .in('id', userIds);
+
+            if (profilesError) throw profilesError;
+
+            // Merge participants with their profiles
+            const merged = participants.map(participant => ({
+                ...participant,
+                profiles: profiles?.find(profile => profile.id === participant.user_id) || null
+            }));
+
+            return merged;
+        } catch (error) {
+            console.error('Error fetching league participants:', error);
+            return [];
+        }
+    }
+    };
+});

@@ -1,0 +1,182 @@
+{
+    "common": {
+        "cancel": "Cancel",
+        "save": "Save",
+        "edit": "Edit",
+        "delete": "Delete",
+        "error": "Error",
+        "success": "Success",
+        "loading": "Loading...",
+        "comingSoon": "Coming Soon",
+        "code": "Code",
+        "balance": "Balance",
+        "emptyGarageOther": "This user has no cars in their garage.",
+        "photoUploaded": "Photo uploaded successfully.",
+        "updateSuccess": "Profile updated successfully.",
+        "bio": "Bio",
+        "location": "Location",
+        "bioPlaceholder": "Tell us about yourself...",
+        "locationPlaceholder": "City, Country",
+        "adminPanel": "Admin Panel"
+    },
+    "settings": {
+        "title": "Settings",
+        "general": "GENERAL",
+        "account": "YOUR ACCOUNT",
+        "notifications": "NOTIFICATIONS",
+        "info": "INFORMATION",
+        "darkMode": "Dark Mode",
+        "language": "Language",
+        "myProfile": "My Profile",
+        "myActivity": "Your Activity",
+        "memberSince": "Member since",
+        "pushNotifications": "Push Notifications",
+        "privacyPolicy": "Privacy Policy",
+        "termsOfService": "Terms of Service",
+        "appVersion": "App Version",
+        "signOut": "Sign Out",
+        "signOutConfirmTitle": "Sign Out",
+        "signOutConfirmMessage": "Are you sure you want to sign out?"
+    },
+    "profile": {
+        "myProfileTitle": "My Profile",
+        "editProfile": "Edit Profile",
+        "saveChanges": "Save Changes",
+        "cancel": "Cancel",
+        "adminPanel": "Admin Panel",
+        "sendMessage": "Send Message",
+        "garage": "GARAGE",
+        "rep": "REP",
+        "cars": "CARS",
+        "events": "EVENTS",
+        "emptyGarage": "Your garage is empty. Add your machine!",
+        "emptyGarageOther": "Garage empty."
+    },
+    "activity": {
+        "title": "Your Activity",
+        "noEvents": "You haven't attended any events yet.",
+        "exploreEvents": "Explore Events"
+    },
+    "navigation": {
+        "crews": "Crews",
+        "war": "War",
+        "rewards": "Rewards",
+        "league": "League",
+        "profile": "Profile"
+    },
+    "crews": {
+        "title": "Crews",
+        "myCrews": "MY CREWS",
+        "explore": "EXPLORE",
+        "noCrewsAvailable": "No other crews available.",
+        "joinByCode": "Join by Code"
+    },
+    "war": {
+        "title": "Global Car War",
+        "createMonthlyWar": "CREATE MONTHLY WAR",
+        "globalRanking": "Global Ranking",
+        "recentBattles": "Recent Battles",
+        "alerts": {
+            "notice": "Notice",
+            "warExists": "A War is already scheduled for this month.",
+            "createTitle": "Create Monthly War",
+            "createMessage": "Do you want to start this month's Clan War? This will notify all users.",
+            "successTitle": "Success",
+            "successMessage": "Monthly War has been created.",
+            "errorTitle": "Error",
+            "errorMessage": "Could not create the event."
+        }
+    },
+    "rewards": {
+        "title": "Rewards & Vouchers",
+        "yourPoints": "Your Personal Points",
+        "pointsToPro": "{{points}} pts left for Pro level",
+        "tuningCatalog": "Tuning Catalog"
+    },
+    "league": {
+        "title": "League",
+        "create": "Create League",
+        "join": "Join League",
+        "delete": "Delete League",
+        "confirmDelete": "Are you sure you want to delete this league? This will permanently delete the league and all its participants.",
+        "nuclearOption": "NUCLEAR OPTION",
+        "confirmNuclear": "Delete ALL your leagues and participations? This cannot be undone.",
+        "cleanComplete": "Cleanup Complete",
+        "deleteSuccess": "League deleted successfully.",
+        "welcome": "Welcome!",
+        "auctionResults": "Auction Results",
+        "bidRegistered": "Bid Registered",
+        "errors": {
+            "connection": "Connection Error",
+            "notEnoughCars": "Not enough cars in the database.",
+            "create": "Could not create league.",
+            "join": "Invalid code or connection error.",
+            "codeLength": "Invitation code must be at least 6 characters.",
+            "alreadyIn": "You are already in this league.",
+            "invalidCode": "Invalid league code.",
+            "starterPack": "Could not load starter cars",
+            "noId": "League ID or code not found."
+        },
+        "market": {
+            "title": "DEALERSHIP",
+            "availableCars": "AVAILABLE CARS"
+        },
+        "tuning": {
+            "title": "TUNING",
+            "availableParts": "AVAILABLE PARTS"
+        },
+        "garage": {
+            "title": "MY GARAGE",
+            "full": "Garage Full",
+            "fullMessage": "You can only have one car. Sell your current car before buying a new one.",
+            "sell": "Sell Car"
+        },
+        "participants": {
+            "title": "PARTICIPANTES"
+        },
+        "actions": {
+            "buy": "Buy",
+            "sell": "Sell",
+            "install": "Install",
+            "explore": "Explore"
+        },
+        "alerts": {
+            "insufficientFunds": "Insufficient Funds",
+            "insufficientFundsMessage": "You need €{{cost}} but only have €{{balance}}.",
+            "confirmPurchase": "Confirm Purchase",
+            "confirmPurchaseMessage": "Buy {{item}} for €{{price}}?",
+            "purchaseSuccess": "Purchase Successful!",
+            "purchaseSuccessMessagePart": "You bought {{item}}. The part is in your inventory.",
+            "purchaseSuccessMessageCar": "{{item}} is now in your garage.",
+            "purchaseSuccessMessageStarter": "{{item}} is now your starter car. Good luck!",
+            "confirmInstall": "Confirm Installation",
+            "confirmInstallMessage": "Labor cost is €{{cost}}.\n\nInstall modifications?",
+            "installSuccess": "Installation Complete!",
+            "installSuccessMessage": "You paid €{{cost}} for labor. Your mods are ready.",
+            "confirmSell": "Sell {{item}} for €{{price}}?\n\nEquipped parts will be returned to your inventory.",
+            "sold": "Sold!",
+            "soldMessage": "You sold your {{item}} for €{{price}}.\n\nNow you can buy a new car in the market.",
+            "invalidBid": "Invalid Bid",
+            "invalidBidMessage": "Your bid must be higher than the car price (€{{price}}). Current bid: €{{bid}}.",
+            "bidRegistered": "Bid Registered",
+            "bidRegisteredMessage": "You bid €{{amount}} for the {{item}}."
+        },
+        "onboarding": {
+            "title": "MEET N'GREET LEAGUES",
+            "subtitle": "Compete weekly, tune your cars, and rule the streets.",
+            "createBtn": "CREATE NEW LEAGUE",
+            "joinBtn": "JOIN WITH CODE"
+        },
+        "form": {
+            "inviteCode": "Invitation Code:",
+            "leagueName": "League Name:",
+            "enterCode": "Enter Code",
+            "enterName": "Enter Name",
+            "cancel": "Cancel"
+        },
+        "fab": {
+            "title": "New League",
+            "message": "What do you want to do?"
+        }
+    }
+}
