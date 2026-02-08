@@ -8,8 +8,25 @@ import { useStore } from '../store/useStore';
 
 export const RewardsScreen = () => {
     const { t } = useTranslation();
-    const { vouchers, currentUser, redeemVoucher } = useStore();
+    const { vouchers, currentUser, redeemVoucher, fetchUserProfile, updateProfile } = useStore();
     const activeTheme = useAppTheme();
+    const [refreshing, setRefreshing] = React.useState(false);
+
+    React.useEffect(() => {
+        if (currentUser?.id) {
+            refreshPoints();
+        }
+    }, [currentUser?.id]);
+
+    const refreshPoints = async () => {
+        if (!currentUser?.id) return;
+        setRefreshing(true);
+        const profile = await fetchUserProfile(currentUser.id);
+        if (profile) {
+            updateProfile({ pointsPersonal: profile.pointsPersonal || 0 });
+        }
+        setRefreshing(false);
+    };
 
     if (!currentUser) return null;
 
@@ -42,6 +59,8 @@ export const RewardsScreen = () => {
                         canRedeem={currentUser.pointsPersonal >= item.pointsCost}
                     />
                 )}
+                refreshing={refreshing}
+                onRefresh={refreshPoints}
             />
         </View>
     );

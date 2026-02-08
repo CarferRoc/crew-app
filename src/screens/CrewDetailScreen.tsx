@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, TextInput, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Dimensions, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useAppTheme } from '../theme';
 import { Header } from '../components/Header';
@@ -8,6 +8,7 @@ import { EventCard } from '../components/EventCard';
 import { Button } from '../components/Button';
 import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -22,7 +23,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
     const [loading, setLoading] = useState(true);
     const [joinMessage, setJoinMessage] = useState('');
     const [requestSent, setRequestSent] = useState(false);
-    const [activeTab, setActiveTab] = useState<'info' | 'chat' | 'events' | 'alliances'>('info');
+    const [activeTab, setActiveTab] = useState<'info' | 'ranking' | 'chat' | 'events' | 'alliances'>('info');
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
     const [pendingEvents, setPendingEvents] = useState<any[]>([]);
     const [currentMember, setCurrentMember] = useState<any>(null);
@@ -33,6 +34,8 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
     const [myManagedCrews, setMyManagedCrews] = useState<any[]>([]);
     const [showConnectModal, setShowConnectModal] = useState(false);
     const [showLeaderSelection, setShowLeaderSelection] = useState(false);
+    const [leagueData, setLeagueData] = useState<any>(null);
+    const [warStats, setWarStats] = useState<any>({ played: 0, wins: 0, totalPoints: 0 });
 
     const scrollViewRef = useRef<ScrollView>(null);
 
@@ -76,7 +79,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
             // Fetch Crew Details
             const { data: crewData, error: crewError } = await supabase
                 .from('crews')
-                .select('*')
+                .select('*, war_leagues(name, level, code, description)')
                 .eq('id', crewId)
                 .single();
 
@@ -144,6 +147,24 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
             }
 
             setMembers(membersData);
+
+            // Set League Data
+            if (crewData.war_leagues) {
+                setLeagueData(crewData.war_leagues);
+            }
+
+            // Fetch War Stats
+            const { data: warEntries, error: warError } = await supabase
+                .from('war_entries')
+                .select('rank, total_score')
+                .eq('crew_id', crewId);
+
+            if (!warError && warEntries) {
+                const played = warEntries.length;
+                const wins = warEntries.filter((w: any) => w.rank === 1).length;
+                const totalPoints = warEntries.reduce((sum: number, w: any) => sum + (Number(w.total_score) || 0), 0);
+                setWarStats({ played, wins, totalPoints });
+            }
 
             // Fetch Events
             let eventsQuery = supabase
@@ -437,6 +458,12 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
                 onPress={() => setActiveTab('info')}
             >
                 <Text style={[styles.tabText, { color: activeTab === 'info' ? theme.colors.primary : theme.colors.textMuted }, activeTab === 'info' && { fontWeight: 'bold' }]}>INFO</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+                style={[styles.tabItem, activeTab === 'ranking' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
+                onPress={() => setActiveTab('ranking')}
+            >
+                <Text style={[styles.tabText, { color: activeTab === 'ranking' ? theme.colors.primary : theme.colors.textMuted }, activeTab === 'ranking' && { fontWeight: 'bold' }]}>RANKING</Text>
             </TouchableOpacity>
             <TouchableOpacity
                 style={[styles.tabItem, activeTab === 'events' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
@@ -742,6 +769,65 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
         </ScrollView>
     );
 
+    const renderRanking = () => {
+        const getLeagueColors = (level: number) => {
+            switch (level) {
+                case 7: return ['#FFD700', '#FFA500']; // Elite (Gold)
+                case 6: return ['#C0C0C0', '#A9A9A9']; // Overdrive (Silver)
+                case 5: return ['#CD7F32', '#8B4513']; // Pro (Bronze)
+                case 1: return ['#EF5350', '#B71C1C']; // Red
+                default: return ['#42a5f5', '#1565c0']; // Blue default
+            }
+        };
+
+        const colors = leagueData ? getLeagueColors(leagueData.level) : ['#333', '#111'];
+
+        return (
+            <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
+                {/* League Card */}
+                <LinearGradient
+                    colors={colors as any}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.leagueCard}
+                >
+                    <View style={styles.leagueHeader}>
+                        <MaterialCommunityIcons name="trophy-variant-outline" size={40} color="rgba(255,255,255,0.9)" />
+                        <Text style={styles.leagueLevel}>DIVISIÓN {leagueData?.level || '?'}</Text>
+                    </View>
+                    <Text style={styles.leagueName}>{leagueData?.name || 'Clasificando...'}</Text>
+                    <Text style={styles.leagueDesc}>{leagueData?.description || 'Participa en la próxima guerra para clasificar.'}</Text>
+                </LinearGradient>
+
+                {/* Stats Grid */}
+                <View style={styles.statsGrid}>
+                    <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                        <Text style={[styles.statValue, { color: theme.colors.primary }]}>{warStats.played}</Text>
+                        <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Wars Joined</Text>
+                    </View>
+                    <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                        <Text style={[styles.statValue, { color: theme.colors.success }]}>{warStats.wins}</Text>
+                        <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Victorias</Text>
+                    </View>
+                    <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                        <Text style={[styles.statValue, { color: theme.colors.accent }]}>{Math.round(warStats.totalPoints)}</Text>
+                        <Text style={[styles.statLabel, { color: theme.colors.textMuted }]}>Pts Totales</Text>
+                    </View>
+                </View>
+
+                {/* Recent History List could go here */}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>SEASON STATUS</Text>
+                    <Text style={{ color: theme.colors.textMuted, lineHeight: 20 }}>
+                        La temporada actual está en curso. Al final del mes, los mejores clanes de cada grupo ascenderán de liga.
+                    </Text>
+                </View>
+
+                <View style={{ height: 100 }} />
+            </ScrollView>
+        );
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Header
@@ -769,6 +855,7 @@ export const CrewDetailScreen = ({ route, navigation }: any) => {
             {renderTabs()}
 
             {activeTab === 'info' && renderInfo()}
+            {activeTab === 'ranking' && renderRanking()}
             {activeTab === 'events' && renderEvents()}
             {activeTab === 'chat' && null /* Handled by nav, but nice to be explicit or remove */}
             {activeTab === 'alliances' && renderAlliances()}
@@ -1020,7 +1107,33 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 12,
-        borderBottomWidth: 2,
-        borderBottomColor: 'transparent',
+        borderBottomWidth: 1, // Reduced to match new design
     },
+    tabText: {
+        fontSize: 12,
+        letterSpacing: 0.5,
+    },
+
+    // Ranking Styles
+    leagueCard: {
+        padding: 24,
+        borderRadius: 20,
+        marginBottom: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+        elevation: 8,
+        minHeight: 160,
+        justifyContent: 'center'
+    },
+    leagueHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    leagueLevel: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: 'bold', letterSpacing: 1 },
+    leagueName: { color: 'white', fontSize: 24, fontWeight: '900', marginBottom: 8, textTransform: 'uppercase', letterSpacing: -0.5 },
+    leagueDesc: { color: 'rgba(255,255,255,0.9)', fontSize: 14, lineHeight: 20 },
+
+    statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 4 },
+    statBox: { flex: 1, alignItems: 'center', padding: 12, borderRadius: 16, borderWidth: 1, marginHorizontal: 4, minHeight: 90, justifyContent: 'center' },
+    statValue: { fontSize: 22, fontWeight: '900', marginBottom: 4 },
+    statLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
 });

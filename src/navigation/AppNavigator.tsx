@@ -27,6 +27,7 @@ import { CreateEventScreen } from '../screens/CreateEventScreen';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { CarDetailScreen } from '../screens/CarDetailScreen'; // Added
 import { useStore } from '../store/useStore';
+import { supabase } from '../lib/supabase';
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LigaScreen } from '../screens/LigaScreen';
@@ -79,8 +80,20 @@ const AuthStack = () => (
 
 export const AppNavigator = () => {
     const { t } = useTranslation();
-    const { currentUser, isDarkMode } = useStore();
+    const { currentUser, isDarkMode, setUser } = useStore();
     const activeTheme = isDarkMode ? darkTheme : lightTheme;
+
+    React.useEffect(() => {
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_OUT') {
+                setUser(null); // Clear global state to switch to AuthStack
+            }
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, []);
 
     return (
         <NavigationContainer theme={{

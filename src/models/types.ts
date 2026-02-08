@@ -292,3 +292,40 @@ export type GarageCar = {
   photos: string[];
   createdAt: string;
 };
+
+export type War = {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+  status: 'pending' | 'active' | 'voting' | 'completed';
+  is_multiguerra: boolean;
+};
+
+export type WarEntry = {
+  id: string;
+  war_id: string;
+  crew_id: string;
+  car_id?: string;
+  member_id?: string;
+  car_photo_url?: string;
+  total_score: number;
+  rank?: number;
+  city?: string;
+  group_id?: string;
+  used_booster?: boolean;
+  crew?: {
+    name: string;
+    badge: string;
+    image_url?: string;
+  };
+};
+
+export type WarVote = {
+  id: string;
+  war_id: string;
+  entry_id: string;
+  admin_id: string;
+  score: number;
+};
+

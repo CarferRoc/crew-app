@@ -85,7 +85,26 @@
             "successMessage": "Monthly War has been created.",
             "errorTitle": "Error",
             "errorMessage": "Could not create the event."
-        }
+        },
+        "noActive": "No active war. Prepare your engines!",
+        "startNew": "Start New War",
+        "warNamePlaceholder": "War Name (e.g. October War)",
+        "mode": "Mode",
+        "multiguerraInitial": "Multiguerra (Initial)",
+        "regularPromo": "Regular (Promotion/Relegation)",
+        "startBtn": "Start",
+        "rate": "Rate 1 - 10",
+        "submitVote": "Submit Vote",
+        "adminTools": "ADMIN TOOLS",
+        "selectMvp": "Select MVP (+10 PTS)",
+        "endWar": "End War",
+        "confirmEndTitle": "Confirm End War",
+        "confirmEndMessage": "Are you sure you want to end the war and calculate results? This cannot be undone.",
+        "join": "Join War",
+        "loadingMembers": "Loading members...",
+        "unknown": "Unknown",
+        "mvp": "MVP",
+        "noEntries": "No entries yet. Crews must join!"
     },
     "rewards": {
         "title": "Rewards & Vouchers",
